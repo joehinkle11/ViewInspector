@@ -1,5 +1,5 @@
 import SwiftUI
-import XCTest
+//import XCTest
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public struct InspectableView<View> where View: KnownViewType {
@@ -150,14 +150,14 @@ public extension View {
         return try .init(content, parent: nil, call: "")
     }
     
-    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
-                 inspection: (InspectableView<ViewType.ClassifiedView>) throws -> Void) {
-        do {
-            try inspection(try inspect(function: function))
-        } catch {
-            XCTFail("\(error.localizedDescription)", file: file, line: line)
-        }
-    }
+//    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+//                 inspection: (InspectableView<ViewType.ClassifiedView>) throws -> Void) {
+//        do {
+//            try inspection(try inspect(function: function))
+//        } catch {
+//            XCTFail("\(error.localizedDescription)", file: file, line: line)
+//        }
+//    }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -170,14 +170,14 @@ public extension View where Self: Inspectable {
         return try .init(content, parent: nil, call: call)
     }
     
-    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
-                 inspection: (InspectableView<ViewType.View<Self>>) throws -> Void) {
-        do {
-            try inspection(try inspect(function: function))
-        } catch {
-            XCTFail("\(error.localizedDescription)", file: file, line: line)
-        }
-    }
+//    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+//                 inspection: (InspectableView<ViewType.View<Self>>) throws -> Void) {
+//        do {
+//            try inspection(try inspect(function: function))
+//        } catch {
+//            XCTFail("\(error.localizedDescription)", file: file, line: line)
+//        }
+//    }
 }
 
 // MARK: - Modifiers
@@ -190,14 +190,14 @@ public extension ViewModifier where Self: Inspectable {
         return try .init(content, parent: nil, call: "")
     }
     
-    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
-                 inspection: (InspectableView<ViewType.ViewModifier<Self>>) throws -> Void) {
-        do {
-            try inspection(try inspect(function: function))
-        } catch {
-            XCTFail("\(error.localizedDescription)", file: file, line: line)
-        }
-    }
+//    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+//                 inspection: (InspectableView<ViewType.ViewModifier<Self>>) throws -> Void) {
+//        do {
+//            try inspection(try inspect(function: function))
+//        } catch {
+//            XCTFail("\(error.localizedDescription)", file: file, line: line)
+//        }
+//    }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
