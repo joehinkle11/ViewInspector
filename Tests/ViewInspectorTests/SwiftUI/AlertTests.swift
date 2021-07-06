@@ -23,7 +23,7 @@ final class AlertTests: XCTestCase {
         XCTAssertThrows(try sut.inspect().emptyView().alert(),
             """
             Please refer to the Guide for inspecting the Alert: \
-            https://github.com/nalexn/ViewInspector/blob/master/guide.md#alert
+            https://github.com/nalexn/ViewInspector/blob/master/guide.md#alert-sheet-and-actionsheet
             """)
     }
     
@@ -228,6 +228,10 @@ final class AlertTests: XCTestCase {
 
 extension Int: Identifiable {
     public var id: Int { self }
+}
+
+extension String: Identifiable {
+    public var id: String { self }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
