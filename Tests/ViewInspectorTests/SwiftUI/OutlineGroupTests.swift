@@ -3,6 +3,7 @@ import SwiftUI
 @testable import ViewInspector
 
 #if os(iOS) || os(macOS)
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 final class OutlineGroupTests: XCTestCase {

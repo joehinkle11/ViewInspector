@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct NavigationLink: KnownViewType {
-        public static var typePrefix: String = "NavigationLink"
+        public static let typePrefix: String = "NavigationLink"
     }
 }
 
@@ -76,6 +76,11 @@ public extension InspectableView where View == ViewType.NavigationLink {
     func deactivate() throws {
         try content.set(isActive: false)
     }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func value<Value>(_ type: Value.Type = Value.self) throws -> Value {
+        try content.value(type)
+    }
 }
 
 // MARK: - Private
@@ -107,11 +112,20 @@ private extension Content {
     }
     
     private func isActiveBinding() throws -> Binding<Bool> {
-        if #available(iOS 14, tvOS 14, macOS 10.16, *) {
-            return try Inspector
-                .attribute(path: "_isActive|binding", value: view, type: Binding<Bool>.self)
+        if let binding = try? Inspector
+            .attribute(path: "_deprecated_isActive|binding", value: view, type: Binding<Bool>.self) {
+            return binding
+        }
+        if let binding = try? Inspector
+            .attribute(path: "_isActive|binding", value: view, type: Binding<Bool>.self) {
+            return binding
         }
         return try Inspector
             .attribute(label: "_externalIsActive", value: view, type: Binding<Bool>.self)
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func value<Value>(_ type: Value.Type) throws -> Value {
+        try Inspector.attribute(path: "presentedValue|some|v4|storage|data", value: view, type: Value.self)
     }
 }

@@ -2,21 +2,22 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ConditionalContentTests: XCTestCase {
-    
+
     func testConditionalView() throws {
         let view = ConditionalView()
-        let string1 = try view.inspect().group().text(0).string()
+        let string1 = try view.inspect().implicitAnyView().group().text(0).string()
         XCTAssertEqual(string1, "Text")
         view.viewModel.flag.toggle()
-        let string2 = try view.inspect().group().image(0).actualImage().name()
+        let string2 = try view.inspect().implicitAnyView().group().image(0).actualImage().name()
         XCTAssertEqual(string2, "Image")
     }
     
     func testResetsModifiers() throws {
         let view = ConditionalView().padding().offset()
-        let sut = try view.inspect().view(ConditionalView.self).group()
+        let sut = try view.inspect().view(ConditionalView.self).implicitAnyView().group()
         XCTAssertEqual(sut.content.medium.viewModifiers.count, 1)
         let text = try sut.text(0)
         XCTAssertEqual(text.content.medium.viewModifiers.count, 0)
@@ -24,9 +25,19 @@ final class ConditionalContentTests: XCTestCase {
     
     func testRetainsModifiers() throws {
         let sut = ConditionalViewWithModifier(value: true)
+        #if compiler(<6) || compiler(>=6.1)
         let text = try sut.inspect().text()
+        #else
+        let text = try sut.inspect().implicitAnyView().anyView().text()
+        #endif
         XCTAssertEqual(try text.string(), "True")
-        XCTAssertEqual(try text.padding(), EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+        #if compiler(<6) || compiler(>=6.1)
+        XCTAssertEqual(try sut.inspect().text().padding(),
+                       EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+        #else
+        XCTAssertEqual(try sut.inspect().implicitAnyView().anyView().padding(),
+                       EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+        #endif
     }
 }
 

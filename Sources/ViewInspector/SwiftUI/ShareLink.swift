@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct ShareLink: KnownViewType {
-        public static var typePrefix: String = "ShareLink"
+        public static let typePrefix: String = "ShareLink"
     }
 }
 
@@ -110,6 +110,9 @@ public extension InspectableView where View == ViewType.ShareLink {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
 @available(tvOS, unavailable)
 public extension SharePreview {

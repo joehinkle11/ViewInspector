@@ -8,7 +8,7 @@ public extension ViewType {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension ViewType.StyleConfiguration {
     struct Label: KnownViewType {
-        public static var typePrefix: String = "Label"
+        public static let typePrefix: String = "Label"
         
         public static var namespacedPrefixes: [String] {
             var types: [Any.Type] = [
@@ -33,8 +33,8 @@ public extension ViewType.StyleConfiguration {
     }
     
     struct Content: KnownViewType {
-        public static var typePrefix: String = "Content"
-        
+        public static let typePrefix: String = "Content"
+
         public static var namespacedPrefixes: [String] {
             var types: [Any.Type] = []
             if #available(iOS 14.0, macOS 11.0, tvOS 14.0, *) {
@@ -53,8 +53,8 @@ public extension ViewType.StyleConfiguration {
     }
     
     struct Title: KnownViewType {
-        public static var typePrefix: String = "Title"
-        
+        public static let typePrefix: String = "Title"
+
         public static var namespacedPrefixes: [String] {
             var types: [Any.Type] = []
             if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
@@ -70,8 +70,8 @@ public extension ViewType.StyleConfiguration {
     }
     
     struct Icon: KnownViewType {
-        public static var typePrefix: String = "Icon"
-        
+        public static let typePrefix: String = "Icon"
+
         public static var namespacedPrefixes: [String] {
             var types: [Any.Type] = []
             if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
@@ -87,8 +87,8 @@ public extension ViewType.StyleConfiguration {
     }
     
     struct CurrentValueLabel: KnownViewType {
-        public static var typePrefix: String = "CurrentValueLabel"
-        
+        public static let typePrefix: String = "CurrentValueLabel"
+
         public static var namespacedPrefixes: [String] {
             var types: [Any.Type] = []
             if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {

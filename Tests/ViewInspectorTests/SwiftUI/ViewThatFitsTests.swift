@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewThatFitsTests: XCTestCase {
     
@@ -78,10 +79,17 @@ final class ViewThatFitsTests: XCTestCase {
         guard #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
         else { throw XCTSkip() }
         let view = AnyView(TestViewThatFits())
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertEqual(try view.inspect().find(text: TestViewThatFits.longString).pathToRoot,
             "anyView().view(TestViewThatFits.self).viewThatFits().text(0)")
         XCTAssertEqual(try view.inspect().find(text: TestViewThatFits.shortString).pathToRoot,
             "anyView().view(TestViewThatFits.self).viewThatFits().anyView(1).text()")
+        #else
+        XCTAssertEqual(try view.inspect().find(text: TestViewThatFits.longString).pathToRoot,
+            "anyView().view(TestViewThatFits.self).anyView().viewThatFits().text(0)")
+        XCTAssertEqual(try view.inspect().find(text: TestViewThatFits.shortString).pathToRoot,
+            "anyView().view(TestViewThatFits.self).anyView().viewThatFits().anyView(1).text()")
+        #endif
     }
 }
 

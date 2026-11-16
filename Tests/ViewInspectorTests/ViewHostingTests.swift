@@ -7,6 +7,7 @@ import UIKit
 @testable import ViewInspector
 
 #if os(macOS)
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewHostingTests: XCTestCase {
 
@@ -22,9 +23,10 @@ final class ViewHostingTests: XCTestCase {
             ViewHosting.expel()
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.1)
     }
-    
+
     func testNSViewExtraction() throws {
         let exp = XCTestExpectation(description: "extractNSView")
         let flag = Binding(wrappedValue: false)
@@ -38,15 +40,16 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.2)
     }
-    
+
     func testNSViewExtractionAfterStateUpdate() throws {
         let exp = XCTestExpectation(description: "extractNSView")
         var sut = NSTestView.WrapperView(flag: false, didUpdate: { })
         sut.didAppear = { wrapper in
             wrapper.inspect { wrapper in
-                let view = try wrapper.view(NSTestView.self)
+                let view = try wrapper.implicitAnyView().view(NSTestView.self)
                 XCTAssertThrows(
                     try view.actualView().nsView(),
                     "View for NSTestView is absent")
@@ -61,6 +64,7 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.2)
     }
     
@@ -75,10 +79,12 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.2)
     }
 }
 #elseif os(iOS) || os(tvOS)
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewHostingTests: XCTestCase {
     
@@ -93,6 +99,7 @@ final class ViewHostingTests: XCTestCase {
             ViewHosting.expel()
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.1)
     }
 
@@ -109,6 +116,7 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.2)
     }
     
@@ -117,7 +125,7 @@ final class ViewHostingTests: XCTestCase {
         var sut = UITestView.WrapperView(flag: false, didUpdate: { })
         sut.didAppear = { wrapper in
             wrapper.inspect { wrapper in
-                let view = try wrapper.view(UITestView.self)
+                let view = try wrapper.implicitAnyView().view(UITestView.self)
                 XCTAssertThrows(
                     try view.actualView().uiView(),
                     "View for UITestView is absent")
@@ -132,6 +140,7 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.2)
     }
     
@@ -146,11 +155,13 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.2)
     }
 }
 #elseif os(watchOS)
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
 @available(watchOS, deprecated: 7.0)
 final class ViewHostingTests: XCTestCase {
@@ -165,6 +176,7 @@ final class ViewHostingTests: XCTestCase {
             ViewHosting.expel()
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.1)
     }
     
@@ -179,6 +191,7 @@ final class ViewHostingTests: XCTestCase {
             }
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 1)
     }
 }

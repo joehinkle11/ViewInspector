@@ -4,11 +4,11 @@ import SwiftUI
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public struct ViewSearch {
-    public enum Relation {
+    public enum Relation: Sendable {
         case child
         case parent
     }
-    public enum Traversal {
+    public enum Traversal: Sendable {
         case depthFirst
         case breadthFirst
     }
@@ -269,6 +269,18 @@ public extension InspectableView {
               where condition: ViewSearch.Condition
     ) throws -> InspectableView<ViewType.ClassifiedView> {
         precondition(skipFound >= 0)
+        return try MainActor.assumeIsolated {
+            try isolatedFind(relation: relation, traversal: traversal, skipFound: skipFound, where: condition)
+        }
+    }
+
+    @MainActor
+    private func isolatedFind(
+        relation: ViewSearch.Relation,
+        traversal: ViewSearch.Traversal,
+        skipFound: Int,
+        where condition: ViewSearch.Condition
+    ) throws -> InspectableView<ViewType.ClassifiedView> {
         switch relation {
         case .child:
             return try findChild(condition: condition, traversal: traversal, skipFound: skipFound)
@@ -323,6 +335,13 @@ public extension InspectableView {
       - Returns: An array of all matching views or an empty array if none are found.
      */
     func findAll(where condition: ViewSearch.Condition) -> [InspectableView<ViewType.ClassifiedView>] {
+        return MainActor.assumeIsolated {
+            isolatedFindAll(where: condition)
+        }
+    }
+
+    @MainActor
+    private func isolatedFindAll(where condition: ViewSearch.Condition) -> [InspectableView<ViewType.ClassifiedView>] {
         var results: [InspectableView<ViewType.ClassifiedView>] = []
         depthFirstTraversal(condition, stopOnFoundMatch: { view in
             if let view = try? view.asInspectableView() {
@@ -355,6 +374,7 @@ private extension UnwrappedView {
         throw InspectionError.searchFailure(skipped: skipFound + 1 - counter, blockers: [])
     }
     
+    @MainActor
     func findChild(condition: ViewSearch.Condition,
                    traversal: ViewSearch.Traversal,
                    skipFound: Int
@@ -400,6 +420,7 @@ private extension UnwrappedView {
         }
     }
     
+    @MainActor
     func breadthFirstTraversal(_ condition: ViewSearch.Condition,
                                stopOnFoundMatch: (UnwrappedView) -> Bool,
                                identificationFailure: (Content) -> Void) {
@@ -444,6 +465,7 @@ private extension UnwrappedView {
         }
     }
     
+    @MainActor
     func depthFirstTraversal(_ condition: ViewSearch.Condition,
                              stopOnFoundMatch: (UnwrappedView) -> Bool,
                              identificationFailure: (Content) -> Void) {
@@ -453,6 +475,7 @@ private extension UnwrappedView {
                             identificationFailure: identificationFailure)
     }
     
+    @MainActor
     func depthFirstRecursion(shouldContinue: inout Bool,
                              isSingle: Bool, offset: Int,
                              condition: ViewSearch.Condition,
@@ -494,15 +517,21 @@ private extension UnwrappedView {
         guard content.isCustomView else { return true }
         let typeRef = type(of: content.view)
         var isDirectParent = true
-        return (try? findParent(condition: { parent in
+        if (try? findParent(condition: { parent in
             defer { isDirectParent = false }
             return typeRef == type(of: parent.content.view) && !isDirectParent
+        }, skipFound: 0)) == nil {
+            return true
+        }
+        return (try? findParent(condition: { parent in
+            return (try? parent.navigationLink()) != nil
         }, skipFound: 0)) == nil
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension ViewSearch.Traversal {
+    @MainActor
     func search(in view: UnwrappedView,
                 condition: ViewSearch.Condition,
                 stopOnFoundMatch: (UnwrappedView) -> Bool,

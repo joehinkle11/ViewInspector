@@ -5,8 +5,9 @@ import Combine
 
 // MARK: - High Priority Gesture Modifier Tests
 
+#if !os(watchOS) && !os(tvOS)
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
-@available(tvOS, unavailable)
 final class HighPriorityGestureModifierTests: XCTestCase {
 
     func testHighPriorityGesture() throws {
@@ -101,4 +102,16 @@ final class HighPriorityGestureModifierTests: XCTestCase {
         let path = try sut.inspect().emptyView().highPriorityGesture(LongPressGesture.self, 1).pathToRoot
         XCTAssertEqual(path, "emptyView().highPriorityGesture(LongPressGesture.self, 1)")
     }
+    
+    func testHighPriorityGestureWithSimultaneousGestureContainingDragGestureAndMagnificationGesture() throws {
+        guard #available(iOS 17.0, macOS 14.0, *) else { throw XCTSkip() }
+        let sut = EmptyView()
+            .padding(100)
+            .highPriorityGesture(SimultaneousGesture(DragGesture(), MagnifyGesture()))
+        
+        XCTAssertNoThrow(
+            try sut.inspect().emptyView().highPriorityGesture(SimultaneousGesture<DragGesture, MagnifyGesture>.self)
+        )
+    }
 }
+#endif

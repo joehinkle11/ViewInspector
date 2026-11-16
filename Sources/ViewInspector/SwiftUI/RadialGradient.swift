@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct RadialGradient: KnownViewType {
-        public static var typePrefix: String = "RadialGradient"
+        public static let typePrefix: String = "RadialGradient"
     }
 }
 

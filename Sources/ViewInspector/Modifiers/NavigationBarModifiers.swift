@@ -1,11 +1,5 @@
 import SwiftUI
 
-#if (os(macOS) || targetEnvironment(macCatalyst)) && !MAC_OS_VERSION_13_0
-struct ToolbarPlacement {
-    static var navigationBar: ToolbarPlacement { .init() }
-}
-#endif
-
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectableView {
     
@@ -44,9 +38,51 @@ public extension InspectableView {
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     func statusBarHidden() throws -> Bool {
+        // iOS 27+: reimplemented as a ToolbarAppearanceModifier carrying a Visibility
+        // for the statusBar placement (.hidden == hidden, .visible == shown).
+        if #available(iOS 27.0, *) {
+            let lookup: (ModifierNameProvider) -> Bool = { modifier in
+                guard modifier.modifierType.contains("ToolbarAppearanceModifier"),
+                      let bars = try? Inspector.attribute(path: "modifier|bars", value: modifier) as? [Any],
+                      let firstBar = bars.first,
+                      let role = try? Inspector.attribute(path: "storage|role", value: firstBar),
+                      String(describing: role) == "statusBar"
+                else { return false }
+                return true
+            }
+            let modifier = try modifier(lookup, call: "statusBar(hidden:)")
+            let visibility = try Inspector.attribute(path: "modifier|visibility", value: modifier)
+            return String(describing: visibility).contains("hidden")
+        }
+        // iOS 13...26: stored as a Bool inside TransactionalPreferenceModifier<Bool, StatusBarKey>.
         return try modifierAttribute(
             modifierName: "TransactionalPreferenceModifier<Bool, StatusBarKey>",
             path: "modifier|value", type: Bool.self, call: "statusBar(hidden:)")
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func navigationTitle() throws -> String {
+        do {
+            return try navigationTitleBinding().wrappedValue
+        } catch {
+            throw InspectionError.notSupported("navigationTitle() is only supported with a Binding<String> parameter.")
+        }
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func setNavigationTitle(_ value: String) throws {
+        do {
+            try navigationTitleBinding().wrappedValue = value
+        } catch {
+            throw InspectionError.notSupported("navigationTitle() is only supported with a Binding<String> parameter.")
+        }
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    private func navigationTitleBinding() throws -> Binding<String> {
+        return try modifierAttribute(
+            modifierName: "NavigationPropertiesModifier<Never, EmptyView, TextField<Text>>",
+            path: "modifier|title|some|_text", type: Binding<String>.self, call: "navigationTitle")
     }
 }
 
@@ -74,11 +110,11 @@ extension ViewType.EnvironmentReaderView: SingleViewContent {
 @available(macOS, unavailable)
 @available(watchOS, unavailable)
 public extension InspectableView where View: SingleViewContent {
-    
+
     func navigationBarItems() throws -> InspectableView<ViewType.ClassifiedView> {
         return try navigationBarItems(AnyView.self)
     }
-    
+
     func navigationBarItems<V>(_ viewType: V.Type) throws ->
         InspectableView<ViewType.ClassifiedView> where V: SwiftUI.View {
         return try navigationBarItems(viewType: viewType, content: try child())
@@ -89,7 +125,7 @@ public extension InspectableView where View: SingleViewContent {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectableView where View: MultipleViewContent {
-    
+
     func navigationBarItems(_ index: Int = 0) throws -> InspectableView<ViewType.ClassifiedView> {
         return try navigationBarItems(AnyView.self, index)
     }
@@ -119,10 +155,8 @@ internal extension InspectableView {
         
         let expectedViewType = closureDesc.navigationBarItemsWrappedViewType
         guard Inspector.typeName(type: viewType) == expectedViewType else {
-            // swiftlint:disable line_length
             throw InspectionError.notSupported(
                 "Please substitute '\(expectedViewType).self' as the parameter for 'navigationBarItems()' inspection call")
-            // swiftlint:enable line_length
         }
         
         guard let typedClosure = withUnsafeBytes(of: closure, {
@@ -143,6 +177,6 @@ private extension String {
 }
 
 private struct FakeNavigationBarItemsKey: PreferenceKey {
-    static var defaultValue: String = ""
+    static let defaultValue: String = ""
     static func reduce(value: inout String, nextValue: () -> String) { }
 }

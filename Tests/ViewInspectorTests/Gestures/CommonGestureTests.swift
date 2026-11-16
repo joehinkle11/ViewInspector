@@ -5,6 +5,7 @@ import Combine
 
 // MARK: - Common Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 final class CommonGestureTests<T: Gesture> {
     
@@ -123,11 +124,16 @@ final class CommonGestureTests<T: Gesture> {
         let sut = EmptyView().gesture(gesture)
         var state = CGSize.zero
         var transaction = Transaction()
+        let expected: String
+        if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            expected = "AddGestureModifier<\(String(describing: T.self)), DefaultGestureCombiner> does not have 'updating' callback"
+        } else {
+            expected = "AddGestureModifier<\(String(describing: T.self))> does not have 'updating' callback"
+        }
         XCTAssertThrows(
             try sut.inspect().gesture(T.self)
                 .callUpdating(value: value, state: &state, transaction: &transaction),
-            "AddGestureModifier<\(String(describing: T.self))> does not have 'updating' callback",
-            file: file, line: line
+            expected, file: file, line: line
         )
     }
 
@@ -179,10 +185,15 @@ final class CommonGestureTests<T: Gesture> {
     func callOnChangedFailureTest(file: StaticString = #filePath, line: UInt = #line) throws
         where T.Value: Equatable {
         let sut = EmptyView().gesture(gesture)
+            let expected: String
+            if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+                expected = "AddGestureModifier<\(String(describing: T.self)), DefaultGestureCombiner> does not have 'onChanged' callback"
+            } else {
+                expected = "AddGestureModifier<\(String(describing: T.self))> does not have 'onChanged' callback"
+            }
         XCTAssertThrows(
             try sut.inspect().gesture(T.self).callOnChanged(value: value),
-            "AddGestureModifier<\(String(describing: T.self))> does not have 'onChanged' callback",
-            file: file, line: line)
+            expected, file: file, line: line)
     }
     
     func callOnEndedTest(file: StaticString = #filePath, line: UInt = #line) throws {
@@ -232,10 +243,15 @@ final class CommonGestureTests<T: Gesture> {
 
     func callOnEndedFailureTest(file: StaticString = #filePath, line: UInt = #line) throws {
         let sut = EmptyView().gesture(gesture)
+        let expected: String
+        if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            expected = "AddGestureModifier<\(String(describing: T.self)), DefaultGestureCombiner> does not have 'onEnded' callback"
+        } else {
+            expected = "AddGestureModifier<\(String(describing: T.self))> does not have 'onEnded' callback"
+        }
         XCTAssertThrows(
             try sut.inspect().gesture(T.self).callOnEnded(value: value),
-            "AddGestureModifier<\(String(describing: T.self))> does not have 'onEnded' callback",
-            file: file, line: line)
+            expected, file: file, line: line)
     }
 
     #if os(macOS)

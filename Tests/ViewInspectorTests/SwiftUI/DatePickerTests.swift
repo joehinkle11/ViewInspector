@@ -13,7 +13,9 @@ final class DatePickerTests: XCTestCase {
     @ObservedObject var state = StateObject()
     
     override func setUp() {
-        state = StateObject()
+        MainActor.assumeIsolated {
+            state = StateObject()
+        }
     }
     
     func testEnclosedView() throws {
@@ -70,17 +72,23 @@ final class DatePickerTests: XCTestCase {
     }
 }
 
+@available(iOS 13.0, macOS 10.15, watchOS 10.0, *)
+@available(tvOS, unavailable)
+extension DatePickerTests: @unchecked Sendable { }
+
 // MARK: - View Modifiers
 
 @available(iOS 13.0, macOS 10.15, watchOS 10.0, *)
 @available(tvOS, unavailable)
 final class GlobalModifiersForDatePicker: XCTestCase {
     
+    @MainActor
     func testDatePickerStyle() throws {
         let sut = EmptyView().datePickerStyle(DefaultDatePickerStyle())
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
     
+    @MainActor
     func testDatePickerStyleInspection() throws {
         let sut = EmptyView().datePickerStyle(DefaultDatePickerStyle())
         XCTAssertTrue(try sut.inspect().datePickerStyle() is DefaultDatePickerStyle)

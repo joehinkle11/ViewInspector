@@ -6,7 +6,7 @@ import SwiftUI
 public extension ViewType {
     
     struct SafeAreaInset: KnownViewType {
-        public static var typePrefix: String = "_InsetViewModifier"
+        public static let typePrefix: String = "_InsetViewModifier"
         public static func inspectionCall(typeName: String) -> String {
             return "safeAreaInset(\(ViewType.indexPlaceholder))"
         }

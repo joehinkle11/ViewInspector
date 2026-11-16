@@ -6,7 +6,7 @@ import SwiftUI
 public extension ViewType {
     
     struct ConfirmationDialog: KnownViewType {
-        public static var typePrefix: String = "ConfirmationDialogModifier"
+        public static let typePrefix: String = "ConfirmationDialogModifier"
         public static func inspectionCall(typeName: String) -> String {
             return "confirmationDialog(\(ViewType.indexPlaceholder))"
         }
@@ -81,22 +81,22 @@ extension ViewType.ConfirmationDialog: SupplementaryChildren {
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 public extension InspectableView where View == ViewType.ConfirmationDialog {
-    
+
     func title() throws -> InspectableView<ViewType.Text> {
         return try View.supplementaryChildren(self).element(at: 0)
             .asInspectableView(ofType: ViewType.Text.self)
     }
-    
+
     func message() throws -> InspectableView<ViewType.ClassifiedView> {
         return try View.supplementaryChildren(self).element(at: 1)
             .asInspectableView(ofType: ViewType.ClassifiedView.self)
     }
-    
+
     func actions() throws -> InspectableView<ViewType.ClassifiedView> {
         return try View.supplementaryChildren(self).element(at: 2)
             .asInspectableView(ofType: ViewType.ClassifiedView.self)
     }
-    
+
     func titleVisibility() throws -> Visibility {
         return try Inspector.attribute(
             label: "titleVisibility", value: content.view, type: Visibility.self)

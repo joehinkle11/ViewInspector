@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ImageTests: XCTestCase {
     
@@ -44,6 +45,39 @@ final class ImageTests: XCTestCase {
         let image = try view.inspect().anyView().image().actualImage().nsImage()
         #endif
         XCTAssertEqual(image, testImage)
+    }
+  
+    func testRenderingMode() throws {
+        let view = AnyView(imageView().renderingMode(.template).resizable())
+        let renderingMode = try view.inspect().anyView().image().actualImage().renderingMode()
+        XCTAssertEqual(renderingMode, .template)
+    }
+    
+    func testResizableCapInsets() throws {
+        let capInsets = EdgeInsets(
+            top: 1.1,
+            leading: 2.2,
+            bottom: 3.3,
+            trailing: 4.4
+        )
+        let view = AnyView(imageView().resizable(capInsets: capInsets))
+        let resizable = try view.inspect().anyView().image().actualImage().resizableParameters()
+        
+        XCTAssertEqual(
+            capInsets,
+            resizable.capInsets
+        )
+    }
+    
+    func testResizableResizingMode() throws {
+        let resizingMode: Image.ResizingMode = .stretch
+        let view = AnyView(imageView().resizable(resizingMode: resizingMode))
+        let resizable = try view.inspect().anyView().image().actualImage().resizableParameters()
+        
+        XCTAssertEqual(
+            resizingMode,
+            resizable.resizingMode
+        )
     }
     
     func testExtractionCGImage() throws {
@@ -123,7 +157,7 @@ final class ImageTests: XCTestCase {
     }
 }
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
 extension UIColor {
     func image(_ size: CGSize) -> UIImage {
         let format = UIGraphicsImageRendererFormat()

@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Spacer: KnownViewType {
-        public static var typePrefix: String = "Spacer"
+        public static let typePrefix: String = "Spacer"
     }
 }
 

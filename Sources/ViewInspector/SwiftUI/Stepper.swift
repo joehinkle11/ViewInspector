@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Stepper: KnownViewType {
-        public static var typePrefix: String = "Stepper"
+        public static let typePrefix: String = "Stepper"
     }
 }
 

@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct ProgressView: KnownViewType {
-        public static var typePrefix: String = "ProgressView"
+        public static let typePrefix: String = "ProgressView"
     }
 }
 
@@ -127,12 +127,20 @@ internal extension ProgressViewStyleConfiguration {
         let fractionCompleted: Double?
         let tail: (Bool, Bool, Bool) = (false, false, false)
     }
+    private struct Allocator37 {
+        let head: (UInt64?, UInt32) = (nil, 0)
+        let alwaysIndeterminate: Bool = false
+        let fractionCompleted: Double?
+        let tail: (Bool, Bool, Bool, Bool) = (false, false, false, false)
+    }
     init(fractionCompleted: Double?) {
         switch MemoryLayout<Self>.size {
         case 12:
             self = unsafeBitCast(Allocator12(fractionCompleted: fractionCompleted), to: Self.self)
         case 36:
             self = unsafeBitCast(Allocator36(fractionCompleted: fractionCompleted), to: Self.self)
+        case 37:
+            self = unsafeBitCast(Allocator37(fractionCompleted: fractionCompleted), to: Self.self)
         default:
             fatalError(MemoryLayout<Self>.actualSize())
         }

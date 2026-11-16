@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct AngularGradient: KnownViewType {
-        public static var typePrefix: String = "AngularGradient"
+        public static let typePrefix: String = "AngularGradient"
     }
 }
 

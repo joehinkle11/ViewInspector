@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct LazyVGrid: KnownViewType {
-        public static var typePrefix: String = "LazyVGrid"
+        public static let typePrefix: String = "LazyVGrid"
     }
 }
 
@@ -64,6 +64,9 @@ public extension InspectableView where View == ViewType.LazyVGrid {
     }
     
     private func lazyVGridLayout() throws -> Any {
+        if let layout = try? Inspector.attribute(path: "tree|content|root", value: content.view) {
+            return layout
+        }
         return try Inspector.attribute(path: "tree|root", value: content.view)
     }
 }

@@ -3,9 +3,9 @@ import SwiftUI
 // MARK: - Index
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@MainActor
 internal extension ViewSearch {
-    
-    private static var index: [String: [ViewIdentity]] = {
+    private static let index: [String: [ViewIdentity]] = {
         let knownViewTypes: [KnownViewType.Type] = [
             ViewType.ActionSheet.self,
             ViewType.ActionSheet.self,
@@ -16,9 +16,11 @@ internal extension ViewSearch {
             ViewType.AsyncImage.self,
             ViewType.Button.self,
             ViewType.Canvas.self,
+            ViewType.Chart.self,
             ViewType.Color.self,
             ViewType.ColorPicker.self,
             ViewType.ConfirmationDialog.self,
+            ViewType.ContentUnavailableView.self,
             ViewType.ControlGroup.self,
             ViewType.DatePicker.self,
             ViewType.DisclosureGroup.self,
@@ -29,6 +31,7 @@ internal extension ViewSearch {
             ViewType.ForEach.self,
             ViewType.Form.self,
             ViewType.GeometryReader.self,
+            ViewType.GlassEffectContainer.self,
             ViewType.Grid.self,
             ViewType.GridRow.self,
             ViewType.Group.self,
@@ -60,6 +63,7 @@ internal extension ViewSearch {
             ViewType.Popover.self,
             ViewType.ProgressView.self,
             ViewType.RadialGradient.self,
+            ViewType.SafeAreaBar.self,
             ViewType.SafeAreaInset.self,
             ViewType.ScrollView.self,
             ViewType.ScrollViewReader.self,
@@ -75,6 +79,7 @@ internal extension ViewSearch {
             ViewType.StyleConfiguration.Title.self,
             ViewType.StyleConfiguration.Icon.self,
             ViewType.StyleConfiguration.CurrentValueLabel.self,
+            ViewType.Tab.self,
             ViewType.TabView.self,
             ViewType.Text.self,
             ViewType.TextEditor.self,
@@ -83,6 +88,7 @@ internal extension ViewSearch {
             ViewType.Toggle.self,
             ViewType.TouchBar.self,
             ViewType.TupleView.self,
+            ViewType.TupleContentView.self,
             ViewType.Toolbar.self,
             ViewType.Toolbar.Item.self,
             ViewType.Toolbar.ItemGroup.self,
@@ -107,7 +113,7 @@ internal extension ViewSearch {
         }
         return index
     }()
-    
+
     private static func identify(_ content: Content) -> ViewIdentity? {
         if let customMapping = content.view as? CustomViewIdentityMapping {
             let viewType = customMapping.viewTypeForSearch
@@ -174,14 +180,15 @@ internal protocol CustomViewIdentityMapping {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewSearch {
-    
+
     struct ViewIdentity {
-        
-        typealias ChildrenBuilder = (UnwrappedView) throws -> LazyGroup<UnwrappedView>
-        typealias SupplementaryBuilder = (UnwrappedView) throws -> LazyGroup<SupplementaryView>
-        
+
+        typealias ViewBuilder = @MainActor (Content, UnwrappedView?, Int?) throws -> UnwrappedView
+        typealias ChildrenBuilder = @MainActor (UnwrappedView) throws -> LazyGroup<UnwrappedView>
+        typealias SupplementaryBuilder = @MainActor (UnwrappedView) throws -> LazyGroup<SupplementaryView>
+
         let viewType: KnownViewType.Type
-        let builder: (Content, UnwrappedView?, Int?) throws -> UnwrappedView
+        let builder: ViewBuilder
         let children: ChildrenBuilder
         let modifiers: ChildrenBuilder
         let supplementary: ChildrenBuilder
@@ -207,7 +214,7 @@ internal extension ViewSearch {
                 let descendants = try supplementary(parent)
                 return .init(count: descendants.count) { index -> UnwrappedView in
                     var view = try descendants.element(at: index)
-                    if Inspector.isTupleView(view.content.view) ||
+                    if Inspector.isViewTuple(view.content.view) ||
                         !(view is InspectableView<ViewType.ClassifiedView>) {
                         view.isUnwrappedSupplementaryChild = true
                         return view
@@ -316,11 +323,7 @@ private extension Content {
 internal extension ViewType.Overlay.API {
     
     static var viewSearchModifierIdentities: [ViewSearch.ModifierIdentity] {
-        let apiToSearch: [ViewType.Overlay.API] = [
-            .overlayPreferenceValue, .backgroundPreferenceValue,
-            .overlay, .overlayStyle, .background, .backgroundStyle
-        ]
-        return apiToSearch
+        return ViewType.Overlay.API.allCases
             .map { api in
                 .init(name: api.modifierName, builder: { parent, index in
                     try parent.content.overlay(parent: parent, api: api, index: index)
@@ -329,10 +332,13 @@ internal extension ViewType.Overlay.API {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewSearch {
     
-    static private(set) var modifierIdentities: [ModifierIdentity] = ViewType.Overlay.API.viewSearchModifierIdentities
+    static let modifierIdentities: [ModifierIdentity] = ViewType.Overlay.API.viewSearchModifierIdentities
     + [
         .init(name: ViewType.Toolbar.typePrefix, builder: { parent, index in
             try parent.content.toolbar(parent: parent, index: index)
@@ -342,6 +348,9 @@ internal extension ViewSearch {
         }),
         .init(name: ViewType.NavigationDestination.typePrefix, builder: { parent, index in
             try parent.content.navigationDestination(parent: parent, index: index)
+        }),
+        .init(name: ViewType.SafeAreaBar.typePrefix, builder: { parent, index in
+            try parent.content.safeAreaBar(parent: parent, index: index)
         }),
         .init(name: ViewType.SafeAreaInset.typePrefix, builder: { parent, index in
             try parent.content.safeAreaInset(parent: parent, index: index)
@@ -375,8 +384,12 @@ internal extension ViewSearch {
         }),
     ]
     
-    struct ModifierIdentity {
-        typealias Builder = (UnwrappedView, Int?) throws -> UnwrappedView
+    struct ModifierIdentity: Sendable {
+        #if swift(>=6.0)
+        typealias Builder = @MainActor @Sendable (UnwrappedView, Int?) throws -> UnwrappedView
+        #else
+        typealias Builder = @Sendable (UnwrappedView, Int?) throws -> UnwrappedView
+        #endif
         let name: String
         let builder: Builder
         
@@ -397,7 +410,8 @@ internal extension ViewSearch {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension Content {
-    
+
+    @MainActor
     func modifierDescendants(parent: UnwrappedView) -> LazyGroup<UnwrappedView> {
         let modifierNames = modifiersMatching({ _ in true })
                 .map { $0.modifierType }
@@ -427,7 +441,8 @@ internal extension Content {
                 content, parent: parent, call: call, index: index)
         })
     }
-    
+
+    @MainActor
     private func sheetModifierDescendants(parent: UnwrappedView) -> LazyGroup<UnwrappedView> {
         let sheetModifiers = sheetsForSearch()
         let alertModifiers = alertsForSearch()
@@ -441,16 +456,19 @@ internal extension Content {
         #else
         let popoverModifiers: [ViewSearch.ModifierIdentity] = []
         #endif
-        return
-            .init(count: sheetModifiers.count, { index -> UnwrappedView in
-                try sheetModifiers[index].builder(parent, index)
-            }) + .init(count: actionSheetModifiers.count, { index -> UnwrappedView in
-                try actionSheetModifiers[index].builder(parent, index)
-            }) + .init(count: alertModifiers.count, { index -> UnwrappedView in
-                try alertModifiers[index].builder(parent, index)
-            }) + .init(count: popoverModifiers.count, { index -> UnwrappedView in
-                try popoverModifiers[index].builder(parent, index)
-            })
+        let sheetModifiersGroup = LazyGroup(count: sheetModifiers.count, { index -> UnwrappedView in
+            try sheetModifiers[index].builder(parent, index)
+        })
+        let actionSheetGroup = LazyGroup(count: actionSheetModifiers.count, { index -> UnwrappedView in
+            try actionSheetModifiers[index].builder(parent, index)
+        })
+        let alertModifiersGroup = LazyGroup(count: alertModifiers.count, { index -> UnwrappedView in
+            try alertModifiers[index].builder(parent, index)
+        })
+        let popoverModifiersGroup = LazyGroup(count: popoverModifiers.count, { index -> UnwrappedView in
+            try popoverModifiers[index].builder(parent, index)
+        })
+        return sheetModifiersGroup + actionSheetGroup + alertModifiersGroup + popoverModifiersGroup
     }
 }
 

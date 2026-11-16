@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Divider: KnownViewType {
-        public static var typePrefix: String = "Divider"
+        public static let typePrefix: String = "Divider"
     }
 }
 

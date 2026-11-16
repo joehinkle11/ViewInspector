@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct TextField: KnownViewType {
-        public static var typePrefix: String = "TextField"
+        public static let typePrefix: String = "TextField"
     }
 }
 

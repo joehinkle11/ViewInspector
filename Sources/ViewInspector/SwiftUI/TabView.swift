@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct TabView: KnownViewType {
-        public static var typePrefix: String = "TabView"
+        public static let typePrefix: String = "TabView"
     }
 }
 
@@ -12,9 +12,47 @@ public extension ViewType {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension ViewType.TabView: MultipleViewContent {
-    
+
     public static func children(_ content: Content) throws -> LazyGroup<Content> {
         let view = try Inspector.attribute(label: "content", value: content.view)
+
+        // Check if this is the new iOS 18+ Tab-based TabView
+        // With multiple Tabs: Content<_TupleTabContent<Never, (...modifiedtabs...)>>
+        // With single Tab: Content<Tab<...>>
+        let fullTypeName = Inspector.typeName(value: view, generics: .keep)
+        if #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *) {
+            if fullTypeName.hasPrefix("Content<_TupleTabContent<") {
+                // Multiple Tabs
+                let children = try ViewType.Tab.childrenFromTupleTabContent(Content(view, medium: content.medium))
+                guard let selectedValue = content.tabViewSelectionValue() else {
+                    return children
+                }
+                return .init(count: children.count) { index in
+                    let child = try children.element(at: index)
+                    if let viewTag = try? InspectableView<ViewType.ClassifiedView>(child, parent: nil).tag(),
+                       viewTag != selectedValue {
+                        throw InspectionError.viewNotFound(parent: "tab with tag \(viewTag)")
+                    }
+                    return child
+                }
+            } else if fullTypeName.hasPrefix("Content<Tab<") {
+                // Single Tab - extract the tab directly
+                let children = try ViewType.Tab.childFromSingleTabContent(Content(view, medium: content.medium))
+                guard let selectedValue = content.tabViewSelectionValue() else {
+                    return children
+                }
+                return .init(count: children.count) { index in
+                    let child = try children.element(at: index)
+                    if let viewTag = try? InspectableView<ViewType.ClassifiedView>(child, parent: nil).tag(),
+                       viewTag != selectedValue {
+                        throw InspectionError.viewNotFound(parent: "tab with tag \(viewTag)")
+                    }
+                    return child
+                }
+            }
+        }
+
+        // Fall back to traditional TabView content extraction
         let children = try Inspector.viewsInContainer(view: view, medium: content.medium)
         guard let selectedValue = content.tabViewSelectionValue() else {
             return children
@@ -56,9 +94,18 @@ public extension InspectableView where View: MultipleViewContent {
 public extension InspectableView {
     
     func tag() throws -> AnyHashable {
-        return try modifierAttribute(
-            modifierName: "TagValueTraitKey",
-            path: "modifier|value|tagged", type: AnyHashable.self, call: "tag")
+        if let value = try? modifierAttribute(
+            modifierName: "_TagTraitWritingModifier",
+            path: "modifier|tag", type: AnyHashable.self, call: "tag") {
+            return value
+        }
+        let matches = modifiersMatching { $0.modifierType.contains("TagValueTraitKey") }
+        guard let modifier = matches.first(where: { !$0.modifierType.contains("Optional") }) ?? matches.first
+        else {
+            throw InspectionError.modifierNotFound(
+                parent: Inspector.typeName(value: content.view), modifier: "tag", index: 0)
+        }
+        return try Inspector.attribute(path: "modifier|value|tagged", value: modifier, type: AnyHashable.self)
     }
     
     func tabItem() throws -> InspectableView<ViewType.ClassifiedView> {
@@ -116,10 +163,13 @@ internal extension Content {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 14.0, tvOS 14.0, watchOS 7.0, *)
 @available(macOS, unavailable)
-extension PageTabViewStyle: Equatable {
-    
+extension PageTabViewStyle: @retroactive Equatable {
+
     public var indexDisplayMode: PageTabViewStyle.IndexDisplayMode {
         return (try? Inspector.attribute(label: "indexDisplayMode", value: self,
                                          type: PageTabViewStyle.IndexDisplayMode.self)
@@ -131,9 +181,12 @@ extension PageTabViewStyle: Equatable {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 14.0, tvOS 14.0, watchOS 7.0, *)
 @available(macOS, unavailable)
-extension PageTabViewStyle.IndexDisplayMode: Equatable {
+extension PageTabViewStyle.IndexDisplayMode: @retroactive Equatable {
     public static func == (lhs: PageTabViewStyle.IndexDisplayMode, rhs: PageTabViewStyle.IndexDisplayMode) -> Bool {
         let lhsBacking = try? Inspector.attribute(label: "backing", value: lhs)
         let rhsBacking = try? Inspector.attribute(label: "backing", value: rhs)

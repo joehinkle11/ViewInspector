@@ -1,5 +1,8 @@
 import SwiftUI
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewType.Text.Attributes {
     
@@ -21,6 +24,9 @@ internal extension ViewType.Text.Attributes {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension ViewType.Text.Attributes {
     
@@ -114,7 +120,7 @@ public extension ViewType.Text.Attributes {
                 .attribute(path: "lineStyle|some|active", value: child, type: Bool.self) {
                 return active
             }
-            return (try? Inspector.attribute(path: "lineStyle|some|nsUnderlineStyle", value: child)) != nil
+            return extractUnderlineStyle(from: child) != nil
         }
     }
     
@@ -134,8 +140,7 @@ public extension ViewType.Text.Attributes {
         return try commonTrait(name: "strikethrough") { modifier -> NSUnderlineStyle? in
             guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
                 Inspector.typeName(value: child) == "StrikethroughTextModifier",
-                let value = try? Inspector
-                    .attribute(path: "lineStyle|some|nsUnderlineStyle", value: child, type: NSUnderlineStyle.self)
+                  let value = extractUnderlineStyle(from: child)
                 else { return nil }
             return value
         }
@@ -150,7 +155,7 @@ public extension ViewType.Text.Attributes {
                 .attribute(path: "lineStyle|some|active", value: child, type: Bool.self) {
                 return active
             }
-            return (try? Inspector.attribute(path: "lineStyle|some|nsUnderlineStyle", value: child)) != nil
+            return extractUnderlineStyle(from: child) != nil
         }
     }
     
@@ -170,8 +175,7 @@ public extension ViewType.Text.Attributes {
         return try commonTrait(name: "underline") { modifier -> NSUnderlineStyle? in
             guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
                 Inspector.typeName(value: child) == "UnderlineTextModifier",
-                let value = try? Inspector
-                    .attribute(path: "lineStyle|some|nsUnderlineStyle", value: child, type: NSUnderlineStyle.self)
+                  let value = extractUnderlineStyle(from: child)
                 else { return nil }
             return value
         }
@@ -202,6 +206,15 @@ public extension ViewType.Text.Attributes {
                 else { return nil }
             return kerning
         }
+    }
+
+    private func extractUnderlineStyle(from value: Any) -> NSUnderlineStyle? {
+        if let value = try? Inspector
+            .attribute(path: "lineStyle|some|nsUnderlineStyleValue", value: value, type: Int.self) {
+            return NSUnderlineStyle(rawValue: value)
+        }
+        return try? Inspector
+            .attribute(path: "lineStyle|some|nsUnderlineStyle", value: value, type: NSUnderlineStyle.self)
     }
 }
 
@@ -287,6 +300,9 @@ public extension ViewType.Text {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension Font {
     
@@ -319,8 +335,12 @@ public extension Font {
     
     func weight() throws -> Font.Weight {
         do {
-            return try Inspector
-                .attribute(path: "provider|base|weight", value: self, type: Font.Weight.self)
+            let weight = try Inspector
+                .attribute(path: "provider|base|weight", value: self)
+            if let optional = weight as? Font.Weight? {
+                return optional ?? .regular
+            }
+            return try Inspector.cast(value: weight, type: Font.Weight.self)
         } catch {
             throw InspectionError.attributeNotFound(label: "weight", type: "Font")
         }
@@ -328,8 +348,12 @@ public extension Font {
     
     func design() throws -> Font.Design {
         do {
-            return try Inspector
-                .attribute(path: "provider|base|design", value: self, type: Font.Design.self)
+            let design = try Inspector
+                .attribute(path: "provider|base|design", value: self)
+            if let optional = design as? Font.Design? {
+                return optional ?? .`default`
+            }
+            return try Inspector.cast(value: design, type: Font.Design.self)
         } catch {
             throw InspectionError.attributeNotFound(label: "design", type: "Font")
         }

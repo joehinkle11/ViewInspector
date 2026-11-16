@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class LabelTests: XCTestCase {
     
@@ -68,39 +69,47 @@ final class LabelTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class GlobalModifiersForLabel: XCTestCase {
-    
+
     func testLabelStyle() throws {
         guard #available(iOS 14, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
         let sut = EmptyView().labelStyle(IconOnlyLabelStyle())
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
-    
+
     func testLabelStyleInspection() throws {
         guard #available(iOS 14, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
         let sut = EmptyView().labelStyle(IconOnlyLabelStyle())
         XCTAssertTrue(try sut.inspect().labelStyle() is IconOnlyLabelStyle)
     }
-    
+
     func testCustomLabelStyleInspection() throws {
         guard #available(iOS 14, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
         let sut = TestLabelStyle()
-        let title = try sut.inspect().vStack().styleConfigurationTitle(0)
-        let icon = try sut.inspect().vStack().styleConfigurationIcon(1)
+        let title = try sut.inspect().implicitAnyView().vStack().styleConfigurationTitle(0)
+        let icon = try sut.inspect().implicitAnyView().vStack().styleConfigurationIcon(1)
         XCTAssertEqual(try title.blur().radius, 3)
         XCTAssertEqual(try icon.padding(), EdgeInsets(top: 5, leading: 5, bottom: 5, trailing: 5))
         XCTAssertThrows(try EmptyView().inspect().styleConfigurationTitle(),
             "styleConfigurationTitle() found EmptyView instead of LabelStyleConfiguration.Title")
         XCTAssertThrows(try EmptyView().inspect().styleConfigurationIcon(),
             "styleConfigurationIcon() found EmptyView instead of LabelStyleConfiguration.Icon")
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertEqual(try sut.inspect().find(ViewType.StyleConfiguration.Title.self).pathToRoot,
                        "vStack().styleConfigurationTitle(0)")
         XCTAssertEqual(try sut.inspect().find(ViewType.StyleConfiguration.Icon.self).pathToRoot,
                        "vStack().styleConfigurationIcon(1)")
+        #else
+        XCTAssertEqual(try sut.inspect().find(ViewType.StyleConfiguration.Title.self).pathToRoot,
+                       "anyView().vStack().styleConfigurationTitle(0)")
+        XCTAssertEqual(try sut.inspect().find(ViewType.StyleConfiguration.Icon.self).pathToRoot,
+                       "anyView().vStack().styleConfigurationIcon(1)")
+        #endif
     }
 }
 

@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class NavigationLinkTests: XCTestCase {
     
@@ -62,8 +63,13 @@ final class NavigationLinkTests: XCTestCase {
                        "anyView().navigationView().navigationLink(0)")
         XCTAssertEqual(try view.inspect().find(navigationLink: "Screen 2").pathToRoot,
                        "anyView().navigationView().navigationLink(1)")
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertEqual(try view.inspect().find(text: "Screen 1").pathToRoot,
                        "anyView().navigationView().navigationLink(0).view(TestView.self).text()")
+        #else
+        XCTAssertEqual(try view.inspect().find(text: "Screen 1").pathToRoot,
+                       "anyView().navigationView().navigationLink(0).view(TestView.self).anyView().text()")
+        #endif
         XCTAssertEqual(try view.inspect().find(text: "GoTo 2").pathToRoot,
                        "anyView().navigationView().navigationLink(1).labelView().text()")
     }
@@ -77,17 +83,17 @@ final class NavigationLinkTests: XCTestCase {
         let notFoundError = "Search did not find a match"
         XCTAssertThrows(try sut.find(text: "Screen 1"), notFoundError)
         XCTAssertThrows(try sut.find(text: "Screen 2"), notFoundError)
-        try sut.navigationView().navigationLink(0).activate()
+        try sut.implicitAnyView().navigationView().navigationLink(0).activate()
         XCTAssertNoThrow(try sut.find(text: "GoTo 1"))
         XCTAssertNoThrow(try sut.find(text: "GoTo 2"))
         XCTAssertNoThrow(try sut.find(text: "Screen 1"))
         XCTAssertThrows(try sut.find(text: "Screen 2"), notFoundError)
-        try sut.navigationView().navigationLink(1).activate()
+        try sut.implicitAnyView().navigationView().navigationLink(1).activate()
         XCTAssertThrows(try sut.find(text: "Screen 1"), notFoundError)
         XCTAssertNoThrow(try sut.find(text: "Screen 2"))
-        XCTAssertThrows(try sut.navigationView().navigationLink(0).view(TestView.self),
+        XCTAssertThrows(try sut.implicitAnyView().navigationView().navigationLink(0).view(TestView.self),
                         "View for NavigationLink's destination is absent")
-        XCTAssertNoThrow(try sut.navigationView().navigationLink(1).view(TestView.self))
+        XCTAssertNoThrow(try sut.implicitAnyView().navigationView().navigationLink(1).view(TestView.self))
     }
     
     @available(watchOS 7.0, *)
@@ -107,13 +113,13 @@ final class NavigationLinkTests: XCTestCase {
         XCTAssertThrows(try sut.activate(), errorMessage)
         XCTAssertThrows(try sut.deactivate(), errorMessage)
     }
-    
+
     @available(watchOS 7.0, *)
     func testNavigationWithStateActivation() throws {
         let view = TestViewState()
         XCTAssertNil(view.state.selection)
-        let sut0 = try view.inspect().navigationView().navigationLink(0)
-        let sut1 = try view.inspect().navigationView().navigationLink(1)
+        let sut0 = try view.inspect().implicitAnyView().navigationView().navigationLink(0)
+        let sut1 = try view.inspect().implicitAnyView().navigationView().navigationLink(1)
         XCTAssertFalse(try sut0.isActive())
         XCTAssertFalse(try sut1.isActive())
         try sut0.activate()
@@ -127,8 +133,8 @@ final class NavigationLinkTests: XCTestCase {
         let selection = Binding<String?>(wrappedValue: nil)
         let view = TestViewBinding(selection: selection)
         XCTAssertNil(view.$selection.wrappedValue)
-        let sut0 = try view.inspect().navigationView().navigationLink(0)
-        let sut1 = try view.inspect().navigationView().navigationLink(1)
+        let sut0 = try view.inspect().implicitAnyView().navigationView().navigationLink(0)
+        let sut1 = try view.inspect().implicitAnyView().navigationView().navigationLink(1)
         XCTAssertFalse(try sut0.isActive())
         XCTAssertFalse(try sut1.isActive())
         try sut0.activate()
@@ -136,13 +142,13 @@ final class NavigationLinkTests: XCTestCase {
         XCTAssertTrue(try sut0.isActive())
         XCTAssertFalse(try sut1.isActive())
     }
-    
+
     @available(watchOS 7.0, *)
     func testNavigationWithStateDeactivation() throws {
         let view = TestViewState()
         view.state.selection = view.tag2
-        let sut0 = try view.inspect().navigationView().navigationLink(0)
-        let sut1 = try view.inspect().navigationView().navigationLink(1)
+        let sut0 = try view.inspect().implicitAnyView().navigationView().navigationLink(0)
+        let sut1 = try view.inspect().implicitAnyView().navigationView().navigationLink(1)
         XCTAssertFalse(try sut0.isActive())
         XCTAssertTrue(try sut1.isActive())
         try sut1.deactivate()
@@ -156,8 +162,8 @@ final class NavigationLinkTests: XCTestCase {
         let selection = Binding<String?>(wrappedValue: nil)
         let view = TestViewBinding(selection: selection)
         view.selection = view.tag2
-        let sut0 = try view.inspect().navigationView().navigationLink(0)
-        let sut1 = try view.inspect().navigationView().navigationLink(1)
+        let sut0 = try view.inspect().implicitAnyView().navigationView().navigationLink(0)
+        let sut1 = try view.inspect().implicitAnyView().navigationView().navigationLink(1)
         XCTAssertFalse(try sut0.isActive())
         XCTAssertTrue(try sut1.isActive())
         try sut1.deactivate()
@@ -165,12 +171,12 @@ final class NavigationLinkTests: XCTestCase {
         XCTAssertFalse(try sut0.isActive())
         XCTAssertFalse(try sut1.isActive())
     }
-    
+
     @available(watchOS 7.0, *)
     func testNavigationWithStateReactivation() throws {
         let view = TestViewState()
-        let sut0 = try view.inspect().navigationView().navigationLink(0)
-        let sut1 = try view.inspect().navigationView().navigationLink(1)
+        let sut0 = try view.inspect().implicitAnyView().navigationView().navigationLink(0)
+        let sut1 = try view.inspect().implicitAnyView().navigationView().navigationLink(1)
         try sut1.activate()
         XCTAssertEqual(view.state.selection, view.tag2)
         try sut0.activate()
@@ -183,8 +189,8 @@ final class NavigationLinkTests: XCTestCase {
     func testNavigationWithBindingReactivation() throws {
         let selection = Binding<String?>(wrappedValue: nil)
         let view = TestViewBinding(selection: selection)
-        let sut0 = try view.inspect().navigationView().navigationLink(0)
-        let sut1 = try view.inspect().navigationView().navigationLink(1)
+        let sut0 = try view.inspect().implicitAnyView().navigationView().navigationLink(0)
+        let sut1 = try view.inspect().implicitAnyView().navigationView().navigationLink(1)
         try sut1.activate()
         XCTAssertEqual(view.selection, view.tag2)
         try sut0.activate()
@@ -202,16 +208,86 @@ final class NavigationLinkTests: XCTestCase {
                         "Search did not find a match")
         XCTAssertNoThrow(try sut.find(text: "B to A"))
     }
-    
+
     @available(watchOS 7.0, *)
     func testRecursiveGenericReferenceView() throws {
         let view = TestRecursiveGenericView
             .init(view: TestRecursiveGenericView
                 .init(view: TestRecursiveGenericView
                     .init(view: Text("test"))))
+        #if compiler(<6) || compiler(>=6.1)
         let container = "view(TestRecursiveGenericView<EmptyView>.self)."
+        #else
+        let container = "view(TestRecursiveGenericView<EmptyView>.self).anyView()."
+        #endif
         XCTAssertEqual(try view.inspect().find(text: "test").pathToRoot,
                        container + container + container + "text()")
+    }
+
+    func testRecursiveTreeView() throws {
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
+
+        let sut = TestTreeView(item:
+                .init(name: "Root",
+                      childs: [
+                        .init(name: "A", childs: [.init(name: "A.1"), .init(name: "A.2")]),
+                      ]))
+        #if compiler(<6) || compiler(>=6.1)
+        XCTAssertEqual(try sut.inspect().find(text: "A.2").pathToRoot,
+            """
+            view(TestTreeView.self).vStack().forEach(1).view(TestTreeView.self, \
+            0).vStack().forEach(1).view(TestTreeView.self, 1).vStack().text(0)
+            """)
+        #else
+        XCTAssertEqual(try sut.inspect().find(text: "A.2").pathToRoot,
+            """
+            view(TestTreeView.self).anyView().vStack().forEach(1).view(TestTreeView.self, \
+            0).anyView().vStack().forEach(1).view(TestTreeView.self, 1).anyView().vStack().text(0)
+            """)
+        #endif
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func testNavigationValue() throws {
+        let viewInt = NavigationLink("Go to value", value: 42)
+        XCTAssertEqual(try viewInt.inspect().navigationLink().value(Int.self), 42)
+        XCTAssertThrows(
+            try viewInt.inspect().navigationLink().value(String.self),
+            "Type mismatch: Int is not String"
+        )
+        let viewString = NavigationLink("Go to value", value: "Test string value")
+        XCTAssertEqual(try viewString.inspect().navigationLink().value(), "Test string value")
+        XCTAssertThrows(
+            try viewString.inspect().navigationLink().value(Int.self),
+            "Type mismatch: String is not Int"
+        )
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func testNavigationValueHashable() throws {
+        let sut = NavigationLink("Go to hashable", value: TestValueHashable())
+        XCTAssertEqual(try sut.inspect().navigationLink().value(), TestValueHashable())
+        XCTAssertThrows(
+            try sut.inspect().navigationLink().value(Int.self),
+            "Type mismatch: TestValueHashable is not Int"
+        )
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func testNavigationValueCodable() throws {
+        let sut = NavigationLink("Go to codable", value: TestValueCodable(val: 3))
+        XCTAssertEqual(try sut.inspect().navigationLink().value(), TestValueCodable(val: 3))
+        XCTAssertNotEqual(try sut.inspect().navigationLink().value(), TestValueCodable(val: 4))
+    }
+
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func testNavigationValueMissing() throws {
+        let sut = NavigationLink("Go to codable", destination: EmptyView.init)
+        XCTAssertThrows(
+            try sut.inspect().navigationLink().value(TestValueCodable.self),
+            "Optional<NavigationLinkPresentedValue> does not have 'some' attribute"
+        )
     }
 }
 
@@ -300,3 +376,29 @@ private struct TestRecursiveGenericView<T: View>: View {
         view
     }
 }
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+private struct TestTreeView: View {
+    struct Item: Identifiable {
+        var id: Int { name.hashValue }
+        var name: String
+        var childs: [Item] = []
+    }
+    var item: Item
+    var body: some View {
+        VStack {
+            Text(item.name)
+            ForEach(item.childs, id: \.name) {
+                TestTreeView(item: $0)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+private struct TestValueCodable: Codable, Hashable {
+    let val: Int
+}
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+private struct TestValueHashable: Hashable {}

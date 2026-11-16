@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ButtonTests: XCTestCase {
     
@@ -86,6 +87,7 @@ final class ButtonTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class GlobalModifiersForButton: XCTestCase {
     
@@ -107,6 +109,7 @@ final class GlobalModifiersForButton: XCTestCase {
 
 // MARK: - ButtonStyle
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ButtonStyleInspectionTests: XCTestCase {
     
@@ -127,8 +130,8 @@ final class ButtonStyleInspectionTests: XCTestCase {
         let style = TestButtonStyle()
         let sut1 = try style.inspect(isPressed: false)
         let sut2 = try style.inspect(isPressed: true)
-        XCTAssertEqual(try sut1.group().styleConfigurationLabel(0).blur().radius, 0)
-        XCTAssertEqual(try sut2.group().styleConfigurationLabel(0).blur().radius, 5)
+        XCTAssertEqual(try sut1.implicitAnyView().group().styleConfigurationLabel(0).blur().radius, 0)
+        XCTAssertEqual(try sut2.implicitAnyView().group().styleConfigurationLabel(0).blur().radius, 5)
     }
     
     #if !os(tvOS)
@@ -136,8 +139,8 @@ final class ButtonStyleInspectionTests: XCTestCase {
         guard #available(iOS 13.1, macOS 10.16, tvOS 13.1, *)
         else { throw XCTSkip() }
         let style = TestPrimitiveButtonStyle()
-        let button = try style.inspect().group().view(TestPrimitiveButtonStyle.TestButton.self, 0)
-        XCTAssertNoThrow(try button.anyView().styleConfigurationLabel().blur())
+        let button = try style.inspect().implicitAnyView().group().view(TestPrimitiveButtonStyle.TestButton.self, 0)
+        XCTAssertNoThrow(try button.implicitAnyView().anyView().styleConfigurationLabel().blur())
     }
     
     func testPrimitiveButtonStyleLabel() throws {
@@ -149,13 +152,14 @@ final class ButtonStyleInspectionTests: XCTestCase {
         })
         let view = TestPrimitiveButtonStyle.TestButton(configuration: config)
         let exp = view.inspection.inspect { view in
-            let label = try view.anyView().styleConfigurationLabel()
+            let label = try view.implicitAnyView().anyView().styleConfigurationLabel()
             XCTAssertEqual(try label.blur().radius, 0)
             try label.callOnTapGesture()
-            let updatedLabel = try view.anyView().styleConfigurationLabel()
+            let updatedLabel = try view.implicitAnyView().anyView().styleConfigurationLabel()
             XCTAssertEqual(try updatedLabel.blur().radius, 5)
         }
         ViewHosting.host(view: view)
+        defer { ViewHosting.expel() }
         wait(for: [exp, triggerExp], timeout: 0.3)
     }
     #endif

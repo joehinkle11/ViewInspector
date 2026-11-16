@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Simultaneous Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -23,28 +26,32 @@ final class SimultaneousGestureTests: XCTestCase {
     var gestureTests: CommonGestureTests<SimultaneousGesture<MagnificationGesture, RotationGesture>>?
     
     override func setUpWithError() throws {
-        magnificationMagnifyBy = 10
-        magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
-        rotationAngle = Angle(degrees: 90)
-        rotationValue = RotationGesture.Value(angle: rotationAngle!)
-        simultaneousGestureValue = SimultaneousGesture<MagnificationGesture, RotationGesture>.Value(
-            first: magnificationValue,
-            second: rotationValue)
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = 10
+            magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
+            rotationAngle = Angle(degrees: 90)
+            rotationValue = RotationGesture.Value(angle: rotationAngle!)
+            simultaneousGestureValue = SimultaneousGesture<MagnificationGesture, RotationGesture>.Value(
+                first: magnificationValue,
+                second: rotationValue)
 
-        gestureTests = CommonGestureTests<SimultaneousGesture<MagnificationGesture, RotationGesture>>(
-            testCase: self,
-            gesture: SimultaneousGesture(MagnificationGesture(), RotationGesture()),
-            value: simultaneousGestureValue!,
-            assert: assertSimultaneousGestureValue)
+            gestureTests = CommonGestureTests<SimultaneousGesture<MagnificationGesture, RotationGesture>>(
+                testCase: self,
+                gesture: SimultaneousGesture(MagnificationGesture(), RotationGesture()),
+                value: simultaneousGestureValue!,
+                assert: assertSimultaneousGestureValue)
+        }
     }
     
     override func tearDownWithError() throws {
-        magnificationMagnifyBy = nil
-        magnificationValue = nil
-        rotationAngle = nil
-        rotationValue = nil
-        simultaneousGestureValue = nil
-        gestureTests = nil
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = nil
+            magnificationValue = nil
+            rotationAngle = nil
+            rotationValue = nil
+            simultaneousGestureValue = nil
+            gestureTests = nil
+        }
     }
 
     func testCreateSimultaneousGestureValue() throws {
@@ -64,6 +71,18 @@ final class SimultaneousGestureTests: XCTestCase {
             RotationGesture(minimumAngleDelta: Angle(degrees: 5))))
         let emptyView = try sut.inspect().emptyView()
         let gesture = try emptyView.gesture(SimultaneousGesture<MagnificationGesture, RotationGesture>.self)
+        let simultaneousGesture = try gesture.actualGesture()
+        XCTAssertEqual(simultaneousGesture.first.minimumScaleDelta, 1.5)
+        XCTAssertEqual(simultaneousGesture.second.minimumAngleDelta, Angle(degrees: 5))
+    }
+    
+    @available(iOS 17.0, macOS 14.0, *)
+    func testSimultaneousGestureWithMagnifyAndRotateGestures() throws {
+        let sut = EmptyView().gesture(SimultaneousGesture(
+            MagnifyGesture(minimumScaleDelta: 1.5),
+            RotationGesture(minimumAngleDelta: Angle(degrees: 5))))
+        let emptyView = try sut.inspect().emptyView()
+        let gesture = try emptyView.gesture(SimultaneousGesture<MagnifyGesture, RotationGesture>.self)
         let simultaneousGesture = try gesture.actualGesture()
         XCTAssertEqual(simultaneousGesture.first.minimumScaleDelta, 1.5)
         XCTAssertEqual(simultaneousGesture.second.minimumAngleDelta, Angle(degrees: 5))
@@ -149,3 +168,6 @@ final class SimultaneousGestureTests: XCTestCase {
         XCTAssertEqual(value, simultaneousGestureValue, file: file, line: line)
     }
 }
+
+extension SimultaneousGestureTests: @unchecked Sendable { }
+#endif

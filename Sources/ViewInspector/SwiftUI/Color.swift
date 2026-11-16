@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Color: KnownViewType {
-        public static var typePrefix: String = "Color"
+        public static let typePrefix: String = "Color"
     }
 }
 
@@ -42,6 +42,10 @@ public extension InspectableView where View == ViewType.Color {
         var providerName = Inspector.typeName(value: colorProvider)
         if providerName == "ResolvedColorProvider" {
             colorProvider = try Inspector.attribute(label: "color", value: colorProvider)
+            providerName = Inspector.typeName(value: colorProvider)
+        }
+        if providerName == "ResolvedHDR" {
+            colorProvider = try Inspector.attribute(label: "base", value: colorProvider)
             providerName = Inspector.typeName(value: colorProvider)
         }
         if ["_Resolved", "Resolved"].contains(providerName) {

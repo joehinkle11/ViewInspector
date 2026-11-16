@@ -5,6 +5,7 @@ import Combine
 
 // MARK: - Simultaneous Gesture Modifier Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 final class SimultaneousGestureModifierTests: XCTestCase {

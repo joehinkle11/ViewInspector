@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Exclusive Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -20,21 +23,25 @@ final class ExclusiveGestureTests: XCTestCase {
     var gestureTests: CommonGestureTests<ExclusiveGesture<MagnificationGesture, RotationGesture>>?
 
     override func setUpWithError() throws {
-        magnificationMagnifyBy = 10
-        magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
-        exclusiveGestureValue = ExclusiveGesture<MagnificationGesture, RotationGesture>.Value.first(magnificationValue!)
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = 10
+            magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
+            exclusiveGestureValue = ExclusiveGesture<MagnificationGesture, RotationGesture>.Value.first(magnificationValue!)
 
-        gestureTests = CommonGestureTests<ExclusiveGesture<MagnificationGesture, RotationGesture>>(
-            testCase: self,
-            gesture: ExclusiveGesture(MagnificationGesture(), RotationGesture()),
-            value: exclusiveGestureValue!,
-            assert: assertExclusiveGestureValue)
+            gestureTests = CommonGestureTests<ExclusiveGesture<MagnificationGesture, RotationGesture>>(
+                testCase: self,
+                gesture: ExclusiveGesture(MagnificationGesture(), RotationGesture()),
+                value: exclusiveGestureValue!,
+                assert: assertExclusiveGestureValue)
+        }
     }
     
     override func tearDownWithError() throws {
-        magnificationMagnifyBy = nil
-        magnificationValue = nil
-        exclusiveGestureValue = nil
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = nil
+            magnificationValue = nil
+            exclusiveGestureValue = nil
+        }
     }
 
     func testCreateExclusiveGestureValue() throws {
@@ -53,6 +60,18 @@ final class ExclusiveGestureTests: XCTestCase {
             RotationGesture(minimumAngleDelta: Angle(degrees: 5))))
         let emptyView = try sut.inspect().emptyView()
         let gesture = try emptyView.gesture(ExclusiveGesture<MagnificationGesture, RotationGesture>.self)
+        let exclusiveGesture = try gesture.actualGesture()
+        XCTAssertEqual(exclusiveGesture.first.minimumScaleDelta, 1.5)
+        XCTAssertEqual(exclusiveGesture.second.minimumAngleDelta, Angle(degrees: 5))
+    }
+    
+    @available(iOS 17.0, macOS 14.0, *)
+    func testExclusiveGestureWithMagnifyAndRotateGestures() throws {
+        let sut = EmptyView().gesture(ExclusiveGesture(
+            MagnifyGesture(minimumScaleDelta: 1.5),
+            RotationGesture(minimumAngleDelta: Angle(degrees: 5))))
+        let emptyView = try sut.inspect().emptyView()
+        let gesture = try emptyView.gesture(ExclusiveGesture<MagnifyGesture, RotationGesture>.self)
         let exclusiveGesture = try gesture.actualGesture()
         XCTAssertEqual(exclusiveGesture.first.minimumScaleDelta, 1.5)
         XCTAssertEqual(exclusiveGesture.second.minimumAngleDelta, Angle(degrees: 5))
@@ -138,3 +157,6 @@ final class ExclusiveGestureTests: XCTestCase {
         XCTAssertEqual(value, exclusiveGestureValue, file: file, line: line)
     }
 }
+
+extension ExclusiveGestureTests: @unchecked Sendable { }
+#endif

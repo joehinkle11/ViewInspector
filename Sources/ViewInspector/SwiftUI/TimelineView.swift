@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct TimelineView: KnownViewType {
-        public static var typePrefix: String = "TimelineView"
+        public static let typePrefix: String = "TimelineView"
     }
 }
 
@@ -30,6 +30,9 @@ public extension InspectableView where View: MultipleViewContent {
 
 // MARK: - Non Standard Children
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension ViewType.TimelineView: SupplementaryChildren {
     static func supplementaryChildren(_ parent: UnwrappedView) throws -> LazyGroup<SupplementaryView> {

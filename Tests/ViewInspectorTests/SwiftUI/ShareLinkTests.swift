@@ -1,7 +1,10 @@
+#if !os(tvOS)
+
 import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 @available(tvOS, unavailable)
 final class ShareLinkTests: XCTestCase {
@@ -99,3 +102,5 @@ final class ShareLinkTests: XCTestCase {
         XCTAssertEqual(try sut.icon(), "icon")
     }
 }
+
+#endif

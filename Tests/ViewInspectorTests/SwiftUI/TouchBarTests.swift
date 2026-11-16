@@ -4,6 +4,7 @@ import SwiftUI
 
 #if os(macOS)
 
+@MainActor
 @available(macOS 10.15, *)
 @available(iOS, unavailable)
 @available(tvOS, unavailable)
@@ -32,6 +33,7 @@ final class TouchBarTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(macOS 10.15, *)
 @available(iOS, unavailable)
 @available(tvOS, unavailable)
@@ -90,6 +92,7 @@ extension TouchBarItemPresence: BinaryEquatable { }
 
 #else
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class TouchBarTests: XCTestCase {
     func testNotSupported() throws {

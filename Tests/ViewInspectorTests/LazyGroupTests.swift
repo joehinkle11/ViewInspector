@@ -1,6 +1,7 @@
 import XCTest
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class LazyGroupTests: XCTestCase {
     

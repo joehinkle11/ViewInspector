@@ -3,6 +3,7 @@ import SwiftUI
 @testable import ViewInspector
 
 #if os(iOS) || os(macOS)
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -53,7 +54,7 @@ final class DisclosureGroupTests: XCTestCase {
         let string = try sut.inspect().disclosureGroup().text(1).string()
         XCTAssertEqual(string, "abc")
     }
-    
+
     func testSearch() throws {
         guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = DisclosureGroup(content: {
@@ -70,32 +71,30 @@ final class DisclosureGroupTests: XCTestCase {
         guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = DisclosureGroup("", content: { EmptyView() })
         XCTAssertFalse(try sut.inspect().disclosureGroup().isExpanded())
-        // swiftlint:disable line_length
         XCTAssertThrows(try sut.inspect().disclosureGroup().expand(),
                         "You need to enable programmatic expansion by using `DisclosureGroup(isExpanded:, content:, label:`")
-        // swiftlint:enable line_length
     }
-    
+
     func testExpansionWithStateActivation() throws {
         guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let view = TestViewState()
         XCTAssertFalse(view.state.expanded)
-        XCTAssertFalse(try view.inspect().disclosureGroup().isExpanded())
-        try view.inspect().disclosureGroup().expand()
-        XCTAssertTrue(try view.inspect().disclosureGroup().isExpanded())
-        try view.inspect().disclosureGroup().collapse()
-        XCTAssertFalse(try view.inspect().disclosureGroup().isExpanded())
+        XCTAssertFalse(try view.inspect().implicitAnyView().disclosureGroup().isExpanded())
+        try view.inspect().implicitAnyView().disclosureGroup().expand()
+        XCTAssertTrue(try view.inspect().implicitAnyView().disclosureGroup().isExpanded())
+        try view.inspect().implicitAnyView().disclosureGroup().collapse()
+        XCTAssertFalse(try view.inspect().implicitAnyView().disclosureGroup().isExpanded())
     }
-    
+
     func testExpansionWithBindingActivation() throws {
         guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let expanded = Binding<Bool>(wrappedValue: false)
         let view = TestViewBinding(expanded: expanded)
-        XCTAssertFalse(try view.inspect().disclosureGroup().isExpanded())
-        try view.inspect().disclosureGroup().expand()
-        XCTAssertTrue(try view.inspect().disclosureGroup().isExpanded())
-        try view.inspect().disclosureGroup().collapse()
-        XCTAssertFalse(try view.inspect().disclosureGroup().isExpanded())
+        XCTAssertFalse(try view.inspect().implicitAnyView().disclosureGroup().isExpanded())
+        try view.inspect().implicitAnyView().disclosureGroup().expand()
+        XCTAssertTrue(try view.inspect().implicitAnyView().disclosureGroup().isExpanded())
+        try view.inspect().implicitAnyView().disclosureGroup().collapse()
+        XCTAssertFalse(try view.inspect().implicitAnyView().disclosureGroup().isExpanded())
     }
 }
 

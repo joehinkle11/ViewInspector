@@ -4,7 +4,7 @@ import SwiftUI
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectableView {
-    
+
     func accessibilityLabel() throws -> InspectableView<ViewType.Text> {
         if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *),
            let text = content.view as? Text,
@@ -15,7 +15,11 @@ public extension InspectableView {
         }
         let text: Text
         let call = "accessibilityLabel"
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            text = try v5AccessibilityFirstText(path: "some|texts", call: call)
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            text = try v4AccessibilityPropertyFirst(path: "label|some|texts", call: call)
+        } else if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
             if let firstText = try? v3AccessibilityElement(
                 path: "some|texts", type: [Text].self,
                 call: call, { $0.accessibilityLabel("") }).first {
@@ -38,7 +42,22 @@ public extension InspectableView {
     func accessibilityValue() throws -> InspectableView<ViewType.Text> {
         let text: Text
         let call = "accessibilityValue"
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            text = try v5AccessibilityFirstText(path: "some|description|text", call: call)
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            text = try v4AccessibilityPropertyFirst(path: "value|some|description|text", call: call)
+        } else if #available(iOS 18.4, macOS 15.4, tvOS 18.4, watchOS 11.4, *) {
+            if let firstText = try v3AccessibilityElement(
+                path: "some|description|text", type: [Text].self,
+                call: call, { $0.accessibilityValue("") }).first {
+                text = firstText
+            } else {
+                throw InspectionError
+                    .modifierNotFound(parent: Inspector.typeName(value: content.view),
+                                      modifier: call,
+                                      index: 0)
+            }
+        } else if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
             if let firstText = try? v3AccessibilityElement(
                 path: "some|description", type: [Text].self,
                 call: call, { $0.accessibilityValue("") }).first {
@@ -59,7 +78,14 @@ public extension InspectableView {
     func accessibilityHint() throws -> InspectableView<ViewType.Text> {
         let text: Text
         let call = "accessibilityHint"
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            text = try v5AccessibilityFirstText(path: nil, call: call)
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *),
+           let firstText = try v4AccessibilityProperty(
+            path: "typedValue", type: [Text].self,
+            call: call, { $0.accessibilityHint("") }).first {
+            text = firstText
+        } else if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
             if let firstText = try? v3AccessibilityElement(
                 type: [Text].self, call: call, { $0.accessibilityHint("") }).first {
                 text = firstText
@@ -76,7 +102,13 @@ public extension InspectableView {
     
     func accessibilityHidden() throws -> Bool {
         let call = "accessibilityHidden"
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            let raw = try v5AccessibilityElement(path: "value|rawValue", type: UInt32.self, call: call)
+            return raw != 0
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            let value = try v4AccessibilityProperty(path: "visibility|some|value|rawValue", type: UInt32.self, call: call)
+            return value != 0
+        } else if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
             let value = try v3AccessibilityElement(
                 path: "value|rawValue", type: UInt32.self,
                 call: call, { $0.accessibilityHidden(true) })
@@ -95,7 +127,11 @@ public extension InspectableView {
     
     func accessibilityIdentifier() throws -> String {
         let call = "accessibilityIdentifier"
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            return try v5AccessibilityElement(path: "some|rawValue", type: String.self, call: call)
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            return try v4AccessibilityProperty(path: "identifier|some|rawValue", call: call)
+        } else if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
             return try v3AccessibilityElement(
                 path: "some|rawValue", type: String.self,
                 call: call, { $0.accessibilityIdentifier("") })
@@ -109,7 +145,12 @@ public extension InspectableView {
     
     func accessibilitySortPriority() throws -> Double {
         let call = "accessibilitySortPriority"
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            return try v5AccessibilityElement(path: "some", type: Double.self, call: call)
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            return try v4AccessibilityProperty(
+                path: "typedValue|some", type: Double.self, call: call, { $0.accessibilitySortPriority(0) })
+        } else if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
             return try v3AccessibilityElement(
                 type: Double.self, call: call, { $0.accessibilitySortPriority(0) })
         } else {
@@ -128,18 +169,26 @@ public extension InspectableView {
     }
     
     func accessibilityActivationPoint() throws -> UnitPoint {
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+        let call = "accessibility(activationPoint:)"
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            return try v5AccessibilityElement(
+                path: "some|activate|some|unitPoint", type: UnitPoint.self, call: call)
+        } else if #available(iOS 26.0, macOS 26.0, tvOS 26.0, watchOS 26.0, *) {
+            return try v4AccessibilityProperty(
+                path: "typedValue|some|activate|some|unitPoint", type: UnitPoint.self,
+                call: call, { $0.accessibilityActivationPoint(.center) })
+        } else if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
             return try v3AccessibilityElement(
                 path: "some|activate|some|unitPoint", type: UnitPoint.self,
-                call: "accessibilityIdentifier", { $0.accessibilityActivationPoint(.center) })
+                call: call, { $0.accessibilityActivationPoint(.center) })
         } else if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
             return try v3AccessibilityElement(
                 path: "some|unitPoint", type: UnitPoint.self,
-                call: "accessibilityIdentifier", { $0.accessibilityActivationPoint(.center) })
+                call: call, { $0.accessibilityActivationPoint(.center) })
         } else {
             return try v2AccessibilityElement(
             "ActivationPointKey", path: "value|some|unitPoint",
-            type: UnitPoint.self, call: "accessibility(activationPoint:)")
+            type: UnitPoint.self, call: call)
         }
     }
     
@@ -204,6 +253,9 @@ public extension InspectableView {
 
 // MARK: - Private
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension AccessibilityActionKind {
     func name() throws -> InspectableView<ViewType.Text> {
@@ -241,8 +293,11 @@ private struct AccessibilityProperty {
         self.keyPointerValue = key
         self.value = try Inspector.attribute(path: "typedValue", value: value)
     }
-    
-    static var noisePointerValues: Set<UInt64> = {
+
+    #if swift(>=6.0)
+    @MainActor
+    #endif
+    static let noisePointerValues: Set<UInt64> = {
         let view1 = EmptyView().accessibility(label: Text(""))
         let view2 = EmptyView().accessibility(hint: Text(""))
         do {
@@ -258,7 +313,8 @@ private struct AccessibilityProperty {
 }
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-private extension InspectableView {
+private
+extension InspectableView {
     func v3AccessibilityElement<V, T>(
         path: String? = nil, type: T.Type, call: String, _ reference: (EmptyView) -> V
     ) throws -> T where V: SwiftUI.View {
@@ -347,6 +403,84 @@ private extension InspectableView {
                 type: [Any].self, call: call)
                 .map { try AccessibilityProperty(property: $0) }
         }
+    }
+
+    func v4AccessibilityProperty<V, T>(
+        path: String, type: T.Type, call: String, _ reference: (EmptyView) -> V
+    ) throws -> T where V: SwiftUI.View {
+        guard let objectId = try? reference(EmptyView()).inspect()
+                .v4CustomPropertyStorage(call: call)
+                .first?.key,
+              let property = try v4CustomPropertyStorage(call: call)[objectId]
+        else {
+            throw InspectionError
+                .modifierNotFound(parent: Inspector.typeName(value: content.view),
+                                  modifier: call, index: 0)
+        }
+        return try Inspector.attribute(path: path, value: property, type: T.self)
+    }
+
+    private func v4CustomPropertyStorage(call: String) throws -> [ObjectIdentifier: Any] {
+        return try v4AccessibilityProperty(path: "storage|storage", type: [ObjectIdentifier: Any].self, call: call)
+    }
+
+    func v4AccessibilityProperty<T>(path: String, type: T.Type = T.self, call: String) throws -> T {
+        return try modifierAttribute(
+            modifierName: "AccessibilityAttachmentModifier",
+            path: "modifier|storage|value|properties|\(path)",
+            type: T.self,
+            call: call)
+    }
+
+    func v4AccessibilityPropertyFirst<T>(path: String, type: T.Type = T.self, call: String) throws -> T {
+        let values = try v4AccessibilityProperty(path: path, type: [T].self, call: call)
+        if let first = values.first { return first }
+        throw InspectionError
+            .modifierNotFound(parent: Inspector.typeName(value: content.view),
+                              modifier: call,
+                              index: 0)
+    }
+
+    // iOS 27 replaced the typed `properties` members with a generic
+    // `properties.storage: [Entry]`, where each `Entry` has a `key` metatype
+    // and a typed `value`. Chained accessibility modifiers may stay as separate
+    // AccessibilityAttachmentModifiers, so we aggregate entries across all of them.
+    func v5AccessibilityValues(call: String) throws -> [Any] {
+        let entries = modifiersMatching { $0.modifierType.contains("AccessibilityAttachmentModifier") }
+            .compactMap { modifier -> [Any]? in
+                try? Inspector.attribute(
+                    path: "modifier|storage|value|properties|storage",
+                    value: modifier, type: [Any].self)
+            }
+            .flatMap { $0 }
+        guard !entries.isEmpty else {
+            throw InspectionError.modifierNotFound(
+                parent: Inspector.typeName(value: content.view), modifier: call, index: 0)
+        }
+        return entries.compactMap { try? Inspector.attribute(label: "value", value: $0) }
+    }
+
+    func v5AccessibilityElement<T>(path: String?, type: T.Type, call: String) throws -> T {
+        for value in try v5AccessibilityValues(call: call) {
+            if let path = path {
+                if let result = try? Inspector.attribute(path: path, value: value, type: T.self) {
+                    return result
+                }
+            } else if let result = value as? T {
+                return result
+            }
+        }
+        throw InspectionError.modifierNotFound(
+            parent: Inspector.typeName(value: content.view), modifier: call, index: 0)
+    }
+
+    func v5AccessibilityFirstText(path: String?, call: String) throws -> Text {
+        let texts = try v5AccessibilityElement(path: path, type: [Text].self, call: call)
+        guard let first = texts.first else {
+            throw InspectionError.modifierNotFound(
+                parent: Inspector.typeName(value: content.view), modifier: call, index: 0)
+        }
+        return first
     }
 }
 

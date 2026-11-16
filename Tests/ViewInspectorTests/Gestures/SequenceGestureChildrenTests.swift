@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Sequence Gesture Children Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -17,17 +20,21 @@ final class SequenceGestureChildrenTests: XCTestCase {
     var endedTests: CommonComposedGestureEndedTests<GUT>?
     
     override func setUpWithError() throws {
-        gestureTests = CommonComposedGestureTests<GUT>(type: GUT.self)
-        updatingTests = CommonComposedGestureUpdatingTests<GUT>(testCase: self, type: GUT.self)
-        changedTests = CommonComposedGestureChangedTests<GUT>(testCase: self, type: GUT.self)
-        endedTests = CommonComposedGestureEndedTests<GUT>(testCase: self, type: GUT.self)
+        MainActor.assumeIsolated {
+            gestureTests = CommonComposedGestureTests<GUT>(type: GUT.self)
+            updatingTests = CommonComposedGestureUpdatingTests<GUT>(testCase: self, type: GUT.self)
+            changedTests = CommonComposedGestureChangedTests<GUT>(testCase: self, type: GUT.self)
+            endedTests = CommonComposedGestureEndedTests<GUT>(testCase: self, type: GUT.self)
+        }
     }
     
     override func tearDownWithError() throws {
-        gestureTests = nil
-        updatingTests = nil
-        changedTests = nil
-        endedTests = nil
+        MainActor.assumeIsolated {
+            gestureTests = nil
+            updatingTests = nil
+            changedTests = nil
+            endedTests = nil
+        }
     }
 
     func testSequenceGestureChildren() throws {
@@ -128,3 +135,6 @@ final class SequenceGestureChildrenTests: XCTestCase {
     }
     #endif
 }
+
+extension SequenceGestureChildrenTests: @unchecked Sendable { }
+#endif

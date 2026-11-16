@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct EllipticalGradient: KnownViewType {
-        public static var typePrefix: String = "EllipticalGradient"
+        public static let typePrefix: String = "EllipticalGradient"
     }
 }
 

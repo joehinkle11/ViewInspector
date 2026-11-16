@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Canvas: KnownViewType {
-        public static var typePrefix: String = "Canvas"
+        public static let typePrefix: String = "Canvas"
     }
 }
 

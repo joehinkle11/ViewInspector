@@ -3,6 +3,7 @@ import SwiftUI
 @testable import ViewInspector
 
 #if os(iOS) || os(macOS)
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 final class MenuTests: XCTestCase {
@@ -59,7 +60,7 @@ final class MenuTests: XCTestCase {
         let sut = try view.inspect().menu().hStack(0).text(0).string()
         XCTAssertEqual(sut, "abc")
     }
-    
+
     func testLabelStyleInspection() throws {
         guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = EmptyView().menuStyle(DefaultMenuStyle())
@@ -83,14 +84,19 @@ final class MenuTests: XCTestCase {
         XCTAssertThrows(try sut.inspect().menu().callPrimaryAction(),
                         "Menu does not have 'primaryAction' attribute")
     }
-    
+
     func testCustomMenuStyleInspection() throws {
         guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = TestMenuStyle()
-        let menu = try sut.inspect().vStack().menu(0)
+        let menu = try sut.inspect().implicitAnyView().vStack().menu(0)
         XCTAssertEqual(try menu.blur().radius, 3)
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertEqual(try sut.inspect().find(ViewType.StyleConfiguration.Content.self).pathToRoot,
                        "vStack().menu(0).styleConfigurationContent(0)")
+        #else
+        XCTAssertEqual(try sut.inspect().find(ViewType.StyleConfiguration.Content.self).pathToRoot,
+                       "anyView().vStack().menu(0).styleConfigurationContent(0)")
+        #endif
     }
 }
 

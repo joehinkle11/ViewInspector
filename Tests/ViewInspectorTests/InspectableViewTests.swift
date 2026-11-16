@@ -5,11 +5,13 @@ import SwiftUI
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class InspectableViewTests: XCTestCase {
     
+    @MainActor
     func testBasicInspectionFunctions() throws {
         let view = Text("abc")
         XCTAssertEqual(try view.inspect().text().string(), "abc")
     }
     
+    @MainActor
     func testIsResponsive() throws {
         let view1 = Button("", action: { }).padding()
         let view2 = Button("", action: { }).allowsHitTesting(true).padding()
@@ -31,6 +33,7 @@ final class InspectableViewTests: XCTestCase {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class InspectableViewTestsAccessTests: XCTestCase {
     
+    @MainActor
     func testSequence() throws {
         let view = HStack { Text("Test") }
         var sut = try view.inspect().hStack().makeIterator()
@@ -38,6 +41,7 @@ final class InspectableViewTestsAccessTests: XCTestCase {
         XCTAssertNil(sut.next())
     }
     
+    @MainActor
     func testRandomAccessCollection() throws {
         let view = HStack {
             Text("1").padding(); Text("2"); Text("3")
@@ -53,9 +57,10 @@ final class InspectableViewTestsAccessTests: XCTestCase {
         XCTAssertEqual(sut.underestimatedCount, 3)
     }
     
+    @MainActor
     func testCollectionWithAbsentViews() throws {
         let sut = try ViewWithAbsentChildren(present: false).inspect()
-            .view(ViewWithAbsentChildren.self)
+            .view(ViewWithAbsentChildren.self).implicitAnyView()
         var counter = 0
         // `forEach` is using iterator
         sut.forEach { _ in counter += 1 }

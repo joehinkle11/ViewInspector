@@ -1,8 +1,11 @@
+#if !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 final class GestureExampleTests: XCTestCase {
@@ -10,47 +13,47 @@ final class GestureExampleTests: XCTestCase {
     func testGestureModifier() throws {
         guard #available(iOS 14.0, tvOS 16.0, *) else { throw XCTSkip() }
         let sut = TestGestureView1()
-        let rectangle = try sut.inspect().shape()
+        let rectangle = try sut.inspect().implicitAnyView().shape()
         XCTAssertNoThrow(try rectangle.gesture(TapGesture.self))
     }
 
     func testHighPriorityGestureModifier() throws {
         guard #available(iOS 14.0, tvOS 16.0, *) else { throw XCTSkip() }
         let sut = TestGestureView2()
-        let rectangle = try sut.inspect().shape(0)
+        let rectangle = try sut.inspect().implicitAnyView().shape(0)
         XCTAssertNoThrow(try rectangle.highPriorityGesture(TapGesture.self))
     }
 
     func testSimultaneousGestureModifier() throws {
         guard #available(iOS 14.0, tvOS 16.0, *) else { throw XCTSkip() }
         let sut = TestGestureView3()
-        let rectangle = try sut.inspect().shape(0)
+        let rectangle = try sut.inspect().implicitAnyView().shape(0)
         XCTAssertNoThrow(try rectangle.simultaneousGesture(TapGesture.self))
     }
 
     func testGestureMask() throws {
         guard #available(iOS 14.0, tvOS 16.0, *) else { throw XCTSkip() }
         let sut = TestGestureView9()
-        let gesture = try sut.inspect().shape(0).gesture(TapGesture.self)
+        let gesture = try sut.inspect().implicitAnyView().shape(0).gesture(TapGesture.self)
         XCTAssertEqual(try gesture.gestureMask(), .gesture)
     }
 
     func testGestureProperties() throws {
         guard #available(iOS 14.0, *) else { throw XCTSkip() }
         let sut = TestGestureView4()
-        let rectangle = try sut.inspect().shape(0)
+        let rectangle = try sut.inspect().implicitAnyView().shape(0)
         let gesture = try rectangle.gesture(DragGesture.self).actualGesture()
         XCTAssertEqual(gesture.minimumDistance, 20)
         XCTAssertEqual(gesture.coordinateSpace, .global)
     }
-    
+
     func testTestGestureUpdating() throws {
         guard #available(tvOS 14.0, *) else { throw XCTSkip() }
         let sut = TestGestureView5()
         let exp1 = sut.inspection.inspect { view in
             XCTAssertEqual(try view.actualView().isDetectingLongPress, false)
-            XCTAssertEqual(try view.shape(0).fillShapeStyle(Color.self), Color.green)
-            let gesture = try view.shape(0).gesture(LongPressGesture.self)
+            XCTAssertEqual(try view.implicitAnyView().shape(0).fillShapeStyle(Color.self), Color.green)
+            let gesture = try view.implicitAnyView().shape(0).gesture(LongPressGesture.self)
             let value = LongPressGesture.Value(finished: true)
             var state: Bool = false
             var transaction = Transaction()
@@ -59,10 +62,11 @@ final class GestureExampleTests: XCTestCase {
         }
 
         let exp2 = sut.inspection.inspect(onReceive: sut.publisher) { view in
-            XCTAssertEqual(try view.shape(0).fillShapeStyle(Color.self), Color.green)
+            XCTAssertEqual(try view.implicitAnyView().shape(0).fillShapeStyle(Color.self), Color.green)
         }
 
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp1, exp2], timeout: 0.1)
     }
 
@@ -71,8 +75,8 @@ final class GestureExampleTests: XCTestCase {
         let sut = TestGestureView6()
         let exp1 = sut.inspection.inspect { view in
             XCTAssertEqual(try view.actualView().totalNumberOfTaps, 0)
-            XCTAssertEqual(try view.vStack().text(0).string(), "0")
-            let gesture = try view.vStack().shape(1).gesture(LongPressGesture.self)
+            XCTAssertEqual(try view.implicitAnyView().vStack().text(0).string(), "0")
+            let gesture = try view.implicitAnyView().vStack().shape(1).gesture(LongPressGesture.self)
             let value = LongPressGesture.Value(finished: true)
             try gesture.callOnChanged(value: value)
             sut.publisher.send()
@@ -80,19 +84,20 @@ final class GestureExampleTests: XCTestCase {
 
         let exp2 = sut.inspection.inspect(onReceive: sut.publisher) { view in
             XCTAssertEqual(try view.actualView().totalNumberOfTaps, 1)
-            XCTAssertEqual(try view.vStack().text(0).string(), "1")
+            XCTAssertEqual(try view.implicitAnyView().vStack().text(0).string(), "1")
         }
 
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp1, exp2], timeout: 0.1)
     }
-    
+
     func testTestGestureEnded() throws {
         guard #available(tvOS 14.0, *) else { throw XCTSkip() }
         let sut = TestGestureView7()
         let exp1 = sut.inspection.inspect { view in
             XCTAssertEqual(try view.actualView().doneCounting, false)
-            let circle = try view.vStack().shape(1)
+            let circle = try view.implicitAnyView().vStack().shape(1)
             XCTAssertEqual(try circle.fillShapeStyle(Color.self), Color.green)
             let gesture = try circle.gesture(LongPressGesture.self)
             let value = LongPressGesture.Value(finished: true)
@@ -102,17 +107,18 @@ final class GestureExampleTests: XCTestCase {
 
         let exp2 = sut.inspection.inspect(onReceive: sut.publisher) { view in
             XCTAssertEqual(try view.actualView().doneCounting, true)
-            XCTAssertEqual(try view.vStack().shape(1).fillShapeStyle(Color.self), Color.red)
+            XCTAssertEqual(try view.implicitAnyView().vStack().shape(1).fillShapeStyle(Color.self), Color.red)
         }
 
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp1, exp2], timeout: 0.1)
     }
     
     #if os(macOS)
     func testGestureModifiers() throws {
         let sut = TestGestureView8()
-        let gesture = try sut.inspect().shape(0).gesture(TapGesture.self)
+        let gesture = try sut.inspect().implicitAnyView().shape(0).gesture(TapGesture.self)
         XCTAssertEqual(try gesture.gestureModifiers(), [.shift, .control])
     }
     #endif
@@ -303,3 +309,5 @@ struct TestGestureView9: View {
             .gesture(gesture, including: .gesture)
     }
 }
+
+#endif

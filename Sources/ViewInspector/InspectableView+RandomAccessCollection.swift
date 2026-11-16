@@ -3,9 +3,11 @@ import SwiftUI
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension InspectableView: Sequence where View: MultipleViewContent {
-    
+
     public typealias Element = InspectableView<ViewType.ClassifiedView>
-    
+    #if swift(>=6.0)
+    @MainActor
+    #endif
     public struct Iterator: IteratorProtocol {
         
         private var index: Int = -1
@@ -16,7 +18,7 @@ extension InspectableView: Sequence where View: MultipleViewContent {
             self.group = group
             self.view = view
         }
-        
+
         mutating public func next() -> Element? {
             index += 1
             guard index < group.count else { return nil }
@@ -26,20 +28,20 @@ extension InspectableView: Sequence where View: MultipleViewContent {
     }
 
     public func makeIterator() -> Iterator {
-        // swiftlint:disable force_try
+        // swiftlint:disable:next force_try
         return .init(try! View.children(content), view: self)
-        // swiftlint:enable force_try
     }
 
     public var underestimatedCount: Int {
-        // swiftlint:disable force_try
+        // swiftlint:disable:next force_try
         return try! View.children(content).count
-        // swiftlint:enable force_try
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-extension InspectableView: Collection, BidirectionalCollection, RandomAccessCollection
+extension InspectableView: Collection,
+                           BidirectionalCollection,
+                           RandomAccessCollection
     where View: MultipleViewContent {
     
     public typealias Index = Int

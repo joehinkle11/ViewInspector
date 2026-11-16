@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct ActionSheet: KnownViewType {
-        public static var typePrefix: String = ViewType.PopupContainer<ActionSheet>.typePrefix
+        public static let typePrefix: String = ViewType.PopupContainer<ActionSheet>.typePrefix
         public static var namespacedPrefixes: [String] { [typePrefix] }
         public static func inspectionCall(typeName: String) -> String {
             return "actionSheet(\(ViewType.indexPlaceholder))"
@@ -26,7 +26,7 @@ public extension InspectableView {
 @available(iOS 13.0, tvOS 13.0, *)
 @available(macOS, unavailable)
 internal extension Content {
-    
+
     func actionSheet(parent: UnwrappedView, index: Int?) throws -> InspectableView<ViewType.ActionSheet> {
         return try popup(parent: parent, index: index,
                          modifierPredicate: isActionSheetBuilder(modifier:),
@@ -39,10 +39,11 @@ internal extension Content {
             || $0.modifierType.contains("AlertTransformModifier")
         }, call: name.firstLetterLowercased)
     }
-    
+
+    @MainActor
     func actionSheetsForSearch() -> [ViewSearch.ModifierIdentity] {
         let count = medium.viewModifiers
-            .filter(isActionSheetBuilder(modifier:))
+            .filter { isActionSheetBuilder(modifier: $0) }
             .count
         return Array(0..<count).map { _ in
             .init(name: "", builder: { parent, index in
@@ -50,7 +51,8 @@ internal extension Content {
             })
         }
     }
-    
+
+    @MainActor
     private func isActionSheetBuilder(modifier: Any) -> Bool {
         let modifier = try? Inspector.attribute(
             label: "modifier", value: modifier, type: BasePopupPresenter.self)
@@ -81,7 +83,8 @@ public extension InspectableView where View == ViewType.ActionSheet {
         return try allViews.element(at: index + 2)
             .asInspectableView(ofType: ViewType.AlertButton.self)
     }
-    
+
+    @MainActor
     func dismiss() throws {
         let container = try Inspector.cast(
             value: content.view, type: ViewType.PopupContainer<ViewType.ActionSheet>.self)

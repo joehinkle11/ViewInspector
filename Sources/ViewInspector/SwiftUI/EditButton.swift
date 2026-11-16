@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct EditButton: KnownViewType {
-        public static var typePrefix: String = "EditButton"
+        public static let typePrefix: String = "EditButton"
     }
 }
 

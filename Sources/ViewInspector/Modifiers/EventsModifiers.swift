@@ -36,10 +36,46 @@ public extension InspectableView {
             call: "onChange", index: index)
         callback(value)
     }
+
+    @available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+    func callOnChange<E: Equatable>(oldValue: E, newValue: E, index: Int = 0) throws {
+        let typeName = Inspector.typeName(type: E.self)
+        if let callback = try? modifierAttribute(
+            modifierName: "_ValueActionModifier2<\(typeName)>",
+            path: "modifier|action",
+            type: ((E, E) -> Void).self,
+            call: "onChange", index: index) {
+            callback(oldValue, newValue)
+            return
+        }
+        let callback = try modifierAttribute(
+            modifierName: "_ValueActionModifier2<Optional<\(typeName)>>",
+            path: "modifier|action",
+            type: ((E?, E?) -> Void).self,
+            call: "onChange", index: index)
+        callback(oldValue, newValue)
+    }
 }
 
 @available(iOS 15, macOS 12, tvOS 15, watchOS 8, *)
 public extension InspectableView {
+
+    func callRefreshable() async throws {
+        if #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *) {
+            let callback = try modifierAttribute(
+                modifierName: "RefreshableModifier", path: "modifier|action",
+                type: (@Sendable () async -> Void).self, call: "refreshable")
+            await callback()
+        } else {
+            guard let modifier = content.medium.environmentModifiers.last(where: { modifier in
+                (try? modifier.keyPath() as? KeyPath<EnvironmentValues, RefreshAction?>) == \.refresh
+            }) else {
+                throw InspectionError.modifierNotFound(
+                    parent: Inspector.typeName(value: content.view), modifier: "refreshable", index: 0)
+            }
+            try await Inspector.cast(value: try modifier.value(), type: RefreshAction?.self)?.callAsFunction()
+        }
+    }
 
     func callOnSubmit(of triggers: SubmitTriggers = .text) throws {
         let callback = try modifierAttribute(
@@ -55,4 +91,70 @@ public extension InspectableView {
             call: "onSubmit")
         callback()
     }
+    
+    func callTask() async throws {
+        if #available(iOS 26.4, macOS 26.4, tvOS 26.4, watchOS 26.4, visionOS 26.4, *) {
+            let callback = try modifierAttribute(
+                modifierName: "_TaskModifier2", path: "modifier|action",
+                type: (@isolated(any) () async -> Void).self, call: "task")
+            await callback()
+        } else {
+            let callback = try modifierAttribute(
+                modifierName: "_TaskModifier", path: "modifier|action",
+                type: (@Sendable () async -> Void).self, call: "task")
+            await callback()
+        }
+    }
+
+    func callTask(id: some Equatable, index: Int = 0) async throws {
+        let typeName = Inspector.typeName(type: type(of: id))
+        if #available(iOS 26.4, macOS 26.4, tvOS 26.4, watchOS 26.4, visionOS 26.4, *) {
+            let callback = try modifierAttribute(
+                modifierName: "_TaskValueModifier2<\(typeName)>",
+                path: "modifier|action",
+                type: (@isolated(any) () async -> Void).self,
+                call: "task",
+                index: index)
+            await callback()
+        } else {
+            let callback = try modifierAttribute(
+                modifierName: "_TaskValueModifier<\(typeName)>",
+                path: "modifier|action",
+                type: (@Sendable () async -> Void).self,
+                call: "task",
+                index: index)
+            await callback()
+        }
+    }
+}
+
+// MARK: - ViewScrollEvents
+
+@available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+public extension InspectableView {
+
+    func callOnScrollVisibilityChange(_ isVisible: Bool, index: Int = 0) throws {
+        let action = try modifierAttribute(
+            modifierName: "OnScrollVisibilityChangeModifier", path: "modifier|action",
+            type: Any.self, call: "onScrollVisibilityChange", index: index)
+        // SwiftUI stores the callback with the concrete `(Bool) -> Void` calling convention.
+        // Casting it to that closure type reabstracts it and corrupts the argument, so the
+        // callback is rebound to a container that preserves the original convention.
+        guard type(of: action) == ((Bool) -> Void).self,
+              let container = withUnsafeBytes(of: action, {
+                  $0.bindMemory(to: BoolActionContainer.self).first
+              })
+        else { throw InspectionError.typeMismatch(action, ((Bool) -> Void).self) }
+        container.action(isVisible)
+    }
+
+    func onScrollVisibilityChangeThreshold(index: Int = 0) throws -> Double {
+        return try modifierAttribute(
+            modifierName: "OnScrollVisibilityChangeModifier", path: "modifier|threshold",
+            type: Double.self, call: "onScrollVisibilityChange", index: index)
+    }
+}
+
+private struct BoolActionContainer {
+    let action: (Bool) -> Void
 }

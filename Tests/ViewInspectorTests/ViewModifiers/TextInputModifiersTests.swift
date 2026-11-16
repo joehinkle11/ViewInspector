@@ -4,10 +4,11 @@ import SwiftUI
 
 // MARK: - TextInputModifiersTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class TextInputModifiersTests: XCTestCase {
     
-    #if os(iOS) || os(tvOS) || os(watchOS)
+    #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
     func testTextContentType() throws {
         let sut = EmptyView().textContentType(.emailAddress)
         XCTAssertNoThrow(try sut.inspect().emptyView())
@@ -161,3 +162,81 @@ final class TextInputModifiersTests: XCTestCase {
         XCTAssertEqual(try sut.inspect().emptyView().flipsForRightToLeftLayoutDirection(), true)
     }
 }
+
+@MainActor
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+final class ViewTextCaseTests: XCTestCase {
+
+    func testTextCase() throws {
+        let sut = EmptyView().textCase(.uppercase)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testTextCaseInspection() throws {
+        XCTAssertEqual(try EmptyView().textCase(.uppercase)
+            .inspect().emptyView().textCase(), .uppercase)
+        XCTAssertEqual(try EmptyView().textCase(.lowercase)
+            .inspect().emptyView().textCase(), .lowercase)
+        XCTAssertNil(try EmptyView().textCase(nil)
+            .inspect().emptyView().textCase())
+    }
+
+    func testTextCaseInspectionError() throws {
+        let sut = try EmptyView().inspect()
+        XCTAssertThrows(try sut.textCase(),
+                        "EmptyView does not have 'textCase' modifier")
+    }
+}
+
+// MARK: - ViewTextSelectionTests
+
+#if !os(tvOS) && !os(watchOS)
+@MainActor
+@available(iOS 15.0, macOS 12.0, *)
+final class ViewTextSelectionTests: XCTestCase {
+
+    func testTextSelection() throws {
+        let sut = EmptyView().textSelection(.enabled)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testTextSelectionInspection() throws {
+        XCTAssertTrue(try EmptyView().textSelection(.enabled)
+            .inspect().emptyView().textSelectability())
+        XCTAssertFalse(try EmptyView().textSelection(.disabled)
+            .inspect().emptyView().textSelectability())
+    }
+
+    func testTextSelectionInspectionError() throws {
+        let sut = try EmptyView().inspect()
+        XCTAssertThrows(try sut.textSelectability(),
+                        "EmptyView does not have 'textSelection' modifier")
+    }
+}
+#endif
+
+@MainActor
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+final class ViewSubmitLabelTests: XCTestCase {
+
+    func testSubmitLabel() throws {
+        let sut = EmptyView().submitLabel(.send)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testSubmitLabelInspection() throws {
+        XCTAssertEqual(try EmptyView().submitLabel(.send)
+            .inspect().emptyView().submitLabel(), .send)
+        XCTAssertEqual(try EmptyView().submitLabel(.search)
+            .inspect().emptyView().submitLabel(), .search)
+    }
+
+    func testSubmitLabelInspectionError() throws {
+        let sut = try EmptyView().inspect()
+        XCTAssertThrows(try sut.submitLabel(),
+                        "EmptyView does not have 'submitLabel' modifier")
+    }
+}
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+extension SubmitLabel: @retroactive BinaryEquatable { }

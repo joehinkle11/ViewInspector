@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct ColorPicker: KnownViewType {
-        public static var typePrefix: String = "ColorPicker"
+        public static let typePrefix: String = "ColorPicker"
     }
 }
 

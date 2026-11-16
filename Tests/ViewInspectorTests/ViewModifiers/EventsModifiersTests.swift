@@ -5,6 +5,7 @@ import Combine
 
 // MARK: - ViewEventsTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewEventsTests: XCTestCase {
     
@@ -57,6 +58,53 @@ final class ViewEventsTests: XCTestCase {
         }.padding()
         try sut.inspect().emptyView()
             .callOnChange(newValue: Inspector.TestValue(value: "expected"))
+        wait(for: [exp], timeout: 0.1)
+    }
+
+    func testOnChangeInitial() throws {
+        guard #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+        else { throw XCTSkip() }
+        let val = ""
+        let sut = EmptyView().onChange(of: val, initial: true) {}
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testOnChangeInitialInspection() throws {
+        guard #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+        else { throw XCTSkip() }
+        let val = Optional(Inspector.TestValue(value: "initial"))
+        let exp = XCTestExpectation(description: #function)
+        let sut = EmptyView().padding().onChange(of: val, initial: true) {
+            exp.fulfill()
+        }.padding()
+        try sut.inspect().emptyView()
+            .callOnChange(oldValue: val, newValue: Inspector.TestValue(value: "expected"))
+        wait(for: [exp], timeout: 0.1)
+    }
+
+    func testOnChangeOldValueNewValue() throws {
+        guard #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+        else { throw XCTSkip() }
+        let val = ""
+        let sut = EmptyView().onChange(of: val) { _, _ in }
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testOnChangeOldValueNewValueInspection() throws {
+        guard #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
+        else { throw XCTSkip() }
+        let val = Optional(Inspector.TestValue(value: "inferred type"))
+        let exp = XCTestExpectation(description: #function)
+        let sut = EmptyView().padding().onChange(of: val) { oldValue, newValue in
+            XCTAssertEqual(oldValue, Inspector.TestValue(value: "initial"))
+            XCTAssertEqual(newValue, Inspector.TestValue(value: "expected"))
+            exp.fulfill()
+        }.padding()
+        try sut.inspect().emptyView()
+            .callOnChange(
+                oldValue: Inspector.TestValue(value: "initial"),
+                newValue: Inspector.TestValue(value: "expected")
+            )
         wait(for: [exp], timeout: 0.1)
     }
 
@@ -141,10 +189,187 @@ final class ViewEventsTests: XCTestCase {
         try sut.inspect().callOnSubmit(of: .search)
         wait(for: [expSearch, expText], timeout: 0.1)
     }
+
+    func testRefreshable() throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        let sut = EmptyView().refreshable { }
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testRefreshableInspection() async throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        let exp = XCTestExpectation(description: #function)
+        let sut = EmptyView().padding().refreshable {
+            exp.fulfill()
+        }.padding().onDisappear(perform: { })
+        try await sut.inspect().emptyView().callRefreshable()
+        await fulfillment(of: [exp], timeout: 0.1)
+    }
+
+    func testTask() throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        let sut = EmptyView().task { }
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testTaskInspection() async throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        let exp = XCTestExpectation(description: #function)
+        let sut = EmptyView().padding().task {
+            exp.fulfill()
+        }.padding().onDisappear(perform: { })
+        try await sut.inspect().emptyView().callTask()
+        await fulfillment(of: [exp], timeout: 0.1)
+    }
+
+    func testTaskIdInspection() async throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        let exp = XCTestExpectation(description: #function)
+        let sut = EmptyView().padding()
+            .task(id: "id") {
+                exp.fulfill()
+            }
+        try await sut.inspect().emptyView().callTask(id: "id")
+        await fulfillment(of: [exp], timeout: 0.1)
+    }
+
+    func testTaskIdInspectionWithIndex() async throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        let exp1 = XCTestExpectation(description: "task1")
+        let exp2 = XCTestExpectation(description: "task2")
+        exp1.assertForOverFulfill = true
+        exp2.assertForOverFulfill = true
+
+        let sut = EmptyView().padding()
+            .task(id: "id1") {
+                exp1.fulfill()
+            }
+            .task(id: "id2") {
+                exp2.fulfill()
+            }
+
+        try await sut.inspect().emptyView().callTask(id: "id1", index: 0)
+        await fulfillment(of: [exp1], timeout: 0.1)
+
+        try await sut.inspect().emptyView().callTask(id: "id2", index: 1)
+        await fulfillment(of: [exp2], timeout: 0.1)
+    }
+
+    func testTaskIdInspectionMultipleDifferentTypes() async throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { throw XCTSkip() }
+        struct CustomEquatableStruct: Equatable {
+            let value: Int
+        }
+        let exp1 = XCTestExpectation(description: "task1")
+        let exp2 = XCTestExpectation(description: "task2")
+        let exp3 = XCTestExpectation(description: "task3")
+        exp1.assertForOverFulfill = true
+        exp2.assertForOverFulfill = true
+        exp3.assertForOverFulfill = true
+
+        let sut = EmptyView().padding()
+            .task(id: "id") {
+                exp1.fulfill()
+            }
+            .task(id: 2) {
+                exp2.fulfill()
+            }
+            .task(id: CustomEquatableStruct(value: 1)) {
+                exp3.fulfill()
+            }
+
+        _ = try await sut.inspect().emptyView().callTask(id: 2)
+        _ = try await sut.inspect().emptyView().callTask(id: "id")
+        _ = try await sut.inspect().emptyView().callTask(id: CustomEquatableStruct(value: 1))
+
+        await fulfillment(of: [exp1, exp2, exp3], timeout: 0.1)
+    }
+}
+
+// MARK: - ViewScrollEventsTests
+
+@MainActor
+final class ViewScrollEventsTests: XCTestCase {
+
+    func testOnScrollVisibilityChange() throws {
+        guard #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().onScrollVisibilityChange { _ in }
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testOnScrollVisibilityChangeInspection() throws {
+        guard #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+        else { throw XCTSkip() }
+        let exp1 = XCTestExpectation(description: "\(#function)_visible")
+        let exp2 = XCTestExpectation(description: "\(#function)_hidden")
+        let sut = ScrollView {
+            VStack {
+                Text("abc")
+                    .onScrollVisibilityChange { isVisible in
+                        if isVisible {
+                            exp1.fulfill()
+                        } else {
+                            exp2.fulfill()
+                        }
+                    }
+            }
+        }
+        let text = try sut.inspect().find(text: "abc")
+        try text.callOnScrollVisibilityChange(true)
+        try text.callOnScrollVisibilityChange(false)
+        wait(for: [exp1, exp2], timeout: 0.1)
+    }
+
+    func testOnScrollVisibilityChangeArgumentDelivery() throws {
+        guard #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+        else { throw XCTSkip() }
+        var received: [Bool] = []
+        let sut = EmptyView().onScrollVisibilityChange { received.append($0) }
+        let view = try sut.inspect().emptyView()
+        try view.callOnScrollVisibilityChange(false)
+        try view.callOnScrollVisibilityChange(true)
+        try view.callOnScrollVisibilityChange(false)
+        XCTAssertEqual(received, [false, true, false])
+    }
+
+    func testOnScrollVisibilityChangeMultipleModifiers() throws {
+        guard #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+        else { throw XCTSkip() }
+        var received: [String] = []
+        let sut = EmptyView()
+            .onScrollVisibilityChange(threshold: 0.1) { received.append("first: \($0)") }
+            .onScrollVisibilityChange(threshold: 0.9) { received.append("second: \($0)") }
+        let view = try sut.inspect().emptyView()
+        XCTAssertEqual(try view.onScrollVisibilityChangeThreshold(), 0.1)
+        XCTAssertEqual(try view.onScrollVisibilityChangeThreshold(index: 1), 0.9)
+        try view.callOnScrollVisibilityChange(true)
+        try view.callOnScrollVisibilityChange(false, index: 1)
+        XCTAssertEqual(received, ["first: true", "second: false"])
+    }
+
+    func testOnScrollVisibilityChangeThreshold() throws {
+        guard #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().padding()
+            .onScrollVisibilityChange(threshold: 0.3) { _ in }
+            .padding()
+        XCTAssertEqual(try sut.inspect().emptyView().onScrollVisibilityChangeThreshold(), 0.3)
+    }
+
+    func testOnScrollVisibilityChangeMissingModifierError() throws {
+        guard #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().padding()
+        XCTAssertThrows(
+            try sut.inspect().emptyView().callOnScrollVisibilityChange(true),
+            "EmptyView does not have 'onScrollVisibilityChange' modifier")
+    }
 }
 
 // MARK: - ViewPublisherEventsTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewPublisherEventsTests: XCTestCase {
     
@@ -162,10 +387,10 @@ private extension Inspector {
     }
 }
 
-private final class XCFlagExpectation: XCTestExpectation {
+private final class XCFlagExpectation: XCTestExpectation, @unchecked Sendable {
     
-    var isFulfilled: Bool = false
-    
+    private(set) var isFulfilled: Bool = false
+
     override func fulfill() {
         isFulfilled = true
         super.fulfill()

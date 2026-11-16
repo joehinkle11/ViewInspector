@@ -9,12 +9,14 @@ import SwiftUI
 @available(watchOS, unavailable)
 final class ControlGroupTests: XCTestCase {
 
+    @MainActor
     func testSingleEnclosedView() throws {
         guard #available(iOS 15.0, macOS 12.0, *) else { throw XCTSkip() }
         let sut = ControlGroup { Spacer() }
         XCTAssertNoThrow(try sut.inspect().controlGroup().spacer())
     }
 
+    @MainActor
     func testMultipleEnclosedViews() throws {
         guard #available(iOS 15.0, macOS 12.0, *) else { throw XCTSkip() }
         let sut = ControlGroup { Spacer(); Divider() }
@@ -22,6 +24,7 @@ final class ControlGroupTests: XCTestCase {
         XCTAssertNoThrow(try sut.inspect().controlGroup().divider(1))
     }
 
+    @MainActor
     func testSearch() throws {
         guard #available(iOS 15.0, macOS 12.0, *) else { throw XCTSkip() }
         let sut = AnyView(ControlGroup { Spacer(); Divider() })
@@ -31,6 +34,7 @@ final class ControlGroupTests: XCTestCase {
                        "anyView().controlGroup().divider(1)")
     }
     
+    @MainActor
     func testResetsModifiers() throws {
         guard #available(iOS 15.0, macOS 12.0, *) else { throw XCTSkip() }
         let sut = ControlGroup { Spacer() }.padding()
@@ -38,12 +42,14 @@ final class ControlGroupTests: XCTestCase {
         XCTAssertEqual(view.content.medium.viewModifiers.count, 0)
     }
 
+    @MainActor
     func testExtractionFromSingleViewContainer() throws {
         guard #available(iOS 15.0, macOS 12.0, *) else { throw XCTSkip() }
         let sut = AnyView(ControlGroup { Spacer() })
         XCTAssertNoThrow(try sut.inspect().anyView().controlGroup())
     }
 
+    @MainActor
     func testExtractionFromMultipleViewContainer() throws {
         guard #available(iOS 15.0, macOS 12.0, *) else { throw XCTSkip() }
         let view = HStack {

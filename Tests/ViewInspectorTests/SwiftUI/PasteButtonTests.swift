@@ -10,11 +10,13 @@ import UniformTypeIdentifiers.UTType
 @available(tvOS, unavailable)
 final class PasteButtonTests: XCTestCase {
     
+    @MainActor
     func testExtractionFromSingleViewContainer() throws {
         let view = AnyView(PasteButton(supportedTypes: [], payloadAction: { _ in }))
         XCTAssertNoThrow(try view.inspect().anyView().pasteButton())
     }
     
+    @MainActor
     func testExtractionFromMultipleViewContainer() throws {
         let view = HStack {
             PasteButton(supportedTypes: [], payloadAction: { _ in })
@@ -24,6 +26,7 @@ final class PasteButtonTests: XCTestCase {
         XCTAssertNoThrow(try view.inspect().hStack().pasteButton(1))
     }
     
+    @MainActor
     func testSearch() throws {
         let view = AnyView(PasteButton(supportedTypes: [], payloadAction: { _ in }))
         XCTAssertEqual(try view.inspect().find(ViewType.PasteButton.self).pathToRoot,
@@ -31,6 +34,7 @@ final class PasteButtonTests: XCTestCase {
     }
     
     @available(macOS 11.0, *)
+    @MainActor
     func testSupportedTypes() throws {
         let types = [UTType.gif, .pdf]
         let view = PasteButton(supportedContentTypes: types, payloadAction: { _ in })

@@ -42,7 +42,7 @@ public extension InspectableView {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension ViewType.ViewModifier: SingleViewContent {
-    
+
     public static func child(_ content: Content) throws -> Content {
         if content.isCustomView {
             return try content.extractCustomView()
@@ -70,7 +70,8 @@ internal extension Content {
            modifier.qualifiesAsEnvironmentModifier() {
             if let value = try? modifier.value(),
                let object = try? Inspector.attribute(label: "some", value: value, type: AnyObject.self),
-               object is any ObservableObject {
+               object is any ObservableObject
+                || EnvironmentInjection.environmentKeyPaths(for: object).count > 0 {
                 medium = self.medium.appending(environmentObject: object)
             } else {
                 medium = self.medium.appending(environmentModifier: modifier)
@@ -85,24 +86,20 @@ internal extension Content {
                let modifierBodyView = try? InspectableView<ViewType.ClassifiedView>(modifierBodyContent, parent: nil),
                let viewModifierContent = try? modifierBodyView.find(ViewType.ViewModifierContent.self) {
                 let overlayModifiers = Set(ViewSearch.modifierIdentities.map({ $0.name }))
-                viewModifierContent.content.medium.viewModifiers
-                    .filter { modifier in
-                        return (modifier as? ModifierNameProvider)
-                            .map { $0.modifierType(prefixOnly: true) }
-                            .map { !overlayModifiers.contains($0) } ?? true
-                    }
-                    .forEach {
-                        medium = medium.appending(viewModifier: $0)
-                    }
-                viewModifierContent.content.medium.transitiveViewModifiers.forEach {
-                    medium = medium.appending(transitiveViewModifier: $0)
+                let viewModifierContentMedium = viewModifierContent.content.medium
+                let viewModifiers = medium.viewModifiers + viewModifierContentMedium.viewModifiers.filter { modifier in
+                    return (modifier as? ModifierNameProvider)
+                        .map { $0.modifierType(prefixOnly: true) }
+                        .map { !overlayModifiers.contains($0) } ?? true
                 }
-                viewModifierContent.content.medium.environmentModifiers.forEach {
-                    medium = medium.appending(environmentModifier: $0)
-                }
-                viewModifierContent.content.medium.environmentObjects.forEach {
-                    medium = medium.appending(environmentObject: $0)
-                }
+
+                // Recreates the medium to include any additional modifiers and objects
+                // that were found while unwrapping the custom modifier.
+                medium = .init(
+                    viewModifiers: viewModifiers,
+                    transitiveViewModifiers: viewModifierContentMedium.transitiveViewModifiers,
+                    environmentModifiers: viewModifierContentMedium.environmentModifiers,
+                    environmentObjects: viewModifierContentMedium.environmentObjects)
             }
         }
         return try Inspector.unwrap(view: view, medium: medium)
@@ -121,8 +118,8 @@ internal extension Content {
 public extension ViewType {
     
     struct ViewModifierContent: KnownViewType {
-        public static var typePrefix: String = "_ViewModifier_Content"
-        
+        public static let typePrefix: String = "_ViewModifier_Content"
+
         public static func inspectionCall(typeName: String) -> String {
             return "viewModifierContent(\(ViewType.indexPlaceholder))"
         }
@@ -161,6 +158,7 @@ internal extension _ViewModifier_Content {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewModifier {
+    @MainActor
     func body() -> Any {
         body(content: .init())
     }

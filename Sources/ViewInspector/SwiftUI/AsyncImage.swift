@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct AsyncImage: KnownViewType {
-        public static var typePrefix: String = "AsyncImage"
+        public static let typePrefix: String = "AsyncImage"
     }
 }
 
@@ -46,7 +46,10 @@ extension ViewType.AsyncImage: SupplementaryChildren {
             }
         }
     }
-    
+
+    #if swift(>=6.0)
+    @MainActor
+    #endif
     @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
     fileprivate static func view(for phase: AsyncImagePhase, parent: UnwrappedView
     ) throws -> InspectableView<ViewType.ClassifiedView> {
@@ -75,22 +78,28 @@ internal extension AsyncImagePhase {
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 public extension InspectableView where View == ViewType.AsyncImage {
-    
+     
     func url() throws -> URL? {
+        // iOS 27+: moved into an optional AsyncImageSource.
+        if #available(iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, *) {
+            return try Inspector.attribute(
+                path: "source|some|url", value: content.view, type: URL.self)
+        }
+        // iOS 15...26: stored as a top-level `url` attribute.
         return try Inspector.attribute(
             label: "url", value: content.view, type: URL?.self)
     }
-    
+     
     func scale() throws -> CGFloat {
         return try Inspector.attribute(
             label: "scale", value: content.view, type: CGFloat.self)
     }
-    
+     
     func transaction() throws -> Transaction {
         return try Inspector.attribute(
             label: "transaction", value: content.view, type: Transaction.self)
     }
-    
+     
     func contentView(_ phase: AsyncImagePhase) throws -> InspectableView<ViewType.ClassifiedView> {
         return try ViewType.AsyncImage.view(for: phase, parent: self)
     }

@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct EmptyView: KnownViewType {
-        public static var typePrefix: String = "EmptyView"
+        public static let typePrefix: String = "EmptyView"
     }
 }
 

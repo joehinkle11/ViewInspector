@@ -2,16 +2,17 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ListTests: XCTestCase {
-    
+
     func testSingleEnclosedView() throws {
         let sampleView = Text("Test")
         let view = List { sampleView }
         let sut = try view.inspect().list().text(0).content.view as? Text
         XCTAssertEqual(sut, sampleView)
     }
-    
+
     func testSingleEnclosedViewIndexOutOfBounds() throws {
         let sampleView = Text("Test")
         let view = List { sampleView }
@@ -19,7 +20,7 @@ final class ListTests: XCTestCase {
             try view.inspect().list().text(1),
             "Enclosed view index '1' is out of bounds: '0 ..< 1'")
     }
-    
+
     func testMultipleEnclosedViews() throws {
         let sampleView1 = Text("Test")
         let sampleView2 = Text("Abc")
@@ -32,7 +33,7 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(view2, sampleView2)
         XCTAssertEqual(view3, sampleView3)
     }
-    
+
     func testSearch() throws {
         let view = AnyView(List { EmptyView(); Text("abc") })
         XCTAssertEqual(try view.inspect().find(ViewType.List.self).pathToRoot,
@@ -40,7 +41,7 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(try view.inspect().find(text: "abc").pathToRoot,
                        "anyView().list().text(1)")
     }
-    
+
     func testMultipleEnclosedViewsIndexOutOfBounds() throws {
         let sampleView1 = Text("Test")
         let sampleView2 = Text("Abc")
@@ -49,18 +50,18 @@ final class ListTests: XCTestCase {
             try view.inspect().list().text(2),
             "Enclosed view index '2' is out of bounds: '0 ..< 2'")
     }
-    
+
     func testResetsModifiers() throws {
         let view = List { Text("Test") }.padding()
         let sut = try view.inspect().list().text(0)
         XCTAssertEqual(sut.content.medium.viewModifiers.count, 0)
     }
-    
+
     func testExtractionFromSingleViewContainer() throws {
         let view = AnyView(List { Text("Test") })
         XCTAssertNoThrow(try view.inspect().anyView().list())
     }
-    
+
     func testExtractionFromMultipleViewContainer() throws {
         let view = List {
             List { Text("Test") }
@@ -73,6 +74,7 @@ final class ListTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class GlobalModifiersForList: XCTestCase {
     

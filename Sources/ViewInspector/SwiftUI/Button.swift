@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Button: KnownViewType {
-        public static var typePrefix: String = "Button"
+        public static let typePrefix: String = "Button"
     }
 }
 
@@ -50,9 +50,20 @@ public extension InspectableView where View == ViewType.Button {
         return try View.supplementaryChildren(self).element(at: 0)
             .asInspectableView(ofType: ViewType.ClassifiedView.self)
     }
-    
+
     func tap() throws {
         try guardIsResponsive()
+        if #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *) {
+            #if swift(>=6.0)
+            typealias Callback = @MainActor @Sendable () -> Void
+            #else
+            typealias Callback = @MainActor () -> Void
+            #endif
+            let callback = try Inspector
+                .attribute(path: "action|closure", value: content.view, type: Callback.self)
+            MainActor.assumeIsolated(callback)
+            return
+        }
         typealias Callback = () -> Void
         let callback: Callback = try {
             if let callback = try? Inspector
@@ -118,6 +129,12 @@ public extension PrimitiveButtonStyle {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ButtonStyleConfiguration {
+    private struct Allocator2 {
+        let data: (Bool, Bool)
+        init(flag: Bool) {
+            data = (false, flag)
+        }
+    }
     private struct Allocator3 {
         let data: (Bool, Bool, Bool)
         init(flag: Bool) {
@@ -132,6 +149,8 @@ internal extension ButtonStyleConfiguration {
     }
     init(isPressed: Bool) {
         switch MemoryLayout<Self>.size {
+        case 2:
+            self = unsafeBitCast(Allocator2(flag: isPressed), to: Self.self)
         case 3:
             self = unsafeBitCast(Allocator3(flag: isPressed), to: Self.self)
         case 24:
@@ -158,6 +177,20 @@ public extension PrimitiveButtonStyleConfiguration {
                    Int64, Int64, Int64, Int64, Int32) =
             (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     }
+    private struct Allocator106 {
+        let head: (Bool, Bool) = (false, false)
+        let onTrigger: () -> Void
+        let tail: (Int64, Int64, Int64, Int64, Int64,
+                   Int64, Int64, Int64, Int64, Int64, Int16) =
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    }
+    private struct Allocator114 {
+        let head: (Bool, Bool) = (false, false)
+        let onTrigger: () -> Void
+        let tail: (Int64, Int64, Int64, Int64, Int64, Int64,
+                   Int64, Int64, Int64, Int64, Int64, Int16) =
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    }
     init(onTrigger: @escaping () -> Void) {
         switch MemoryLayout<Self>.size {
         case 16:
@@ -166,6 +199,10 @@ public extension PrimitiveButtonStyleConfiguration {
             self = unsafeBitCast(Allocator24(onTrigger: onTrigger), to: Self.self)
         case 100:
             self = unsafeBitCast(Allocator100(onTrigger: onTrigger), to: Self.self)
+        case 106:
+            self = unsafeBitCast(Allocator106(onTrigger: onTrigger), to: Self.self)
+        case 114:
+            self = unsafeBitCast(Allocator114(onTrigger: onTrigger), to: Self.self)
         default:
             fatalError(MemoryLayout<Self>.actualSize())
         }

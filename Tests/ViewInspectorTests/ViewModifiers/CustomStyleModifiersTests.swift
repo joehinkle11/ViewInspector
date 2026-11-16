@@ -4,36 +4,42 @@ import SwiftUI
 
 // MARK: - CustomStyleModifiersTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class CustomStyleModifiersTests: XCTestCase {
-    
+
     func testHelloWorldStyle() throws {
         let sut = EmptyView().helloWorldStyle(RedOutlineHelloWorldStyle())
-        XCTAssertNoThrow(try sut.inspect().emptyView())
+        XCTAssertNoThrow(try sut.inspect().implicitAnyView().emptyView())
         print(type(of: sut))
     }
-    
+
     func testHelloWorldStyleInspection() throws {
         let sut = EmptyView().helloWorldStyle(RedOutlineHelloWorldStyle())
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertTrue(try sut.inspect().customStyle("helloWorldStyle") is RedOutlineHelloWorldStyle)
+        #else
+        XCTAssertTrue(try sut.inspect().implicitAnyView().emptyView().customStyle("helloWorldStyle") is RedOutlineHelloWorldStyle)
+        #endif
     }
     
     func testHelloWorldStyleExtraction() throws {
         let style = DefaultHelloWorldStyle()
-        XCTAssertNoThrow(try style.inspect().zStack())
+        XCTAssertNoThrow(try style.inspect().implicitAnyView().zStack())
     }
-    
+
     func testHelloWorldStyleAsyncInspection() throws {
         let style = RedOutlineHelloWorldStyle()
-        var body = try style.inspect().view(RedOutlineHelloWorldStyle.StyleBody.self).actualView()
+        var body = try style.inspect().implicitAnyView().view(RedOutlineHelloWorldStyle.StyleBody.self).actualView()
         let expectation = body.on(\.didAppear) { inspectedBody in
-            let zStack = try inspectedBody.zStack()
+            let zStack = try inspectedBody.implicitAnyView().zStack()
             let rectangle = try zStack.shape(0)
             XCTAssertEqual(try rectangle.fillShapeStyle(Color.self), Color.red)
             XCTAssertEqual(try rectangle.strokeStyle().lineWidth, 1)
             XCTAssertEqual(try rectangle.fillStyle().isAntialiased, true)
         }
-        ViewHosting.host(view: body, size: CGSize(width: 300, height: 300))
+        ViewHosting.host(view: body)
+        defer { ViewHosting.expel() }
         wait(for: [expectation], timeout: 1.0)
     }
 }
@@ -83,7 +89,7 @@ struct RedOutlineHelloWorldStyle: HelloWorldStyle {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 struct HelloWorldStyleKey: EnvironmentKey {
-    static var defaultValue: AnyHelloWorldStyle = AnyHelloWorldStyle(DefaultHelloWorldStyle())
+    static let defaultValue: AnyHelloWorldStyle = AnyHelloWorldStyle(DefaultHelloWorldStyle())
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -95,7 +101,7 @@ extension EnvironmentValues {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-struct AnyHelloWorldStyle: HelloWorldStyle {
+struct AnyHelloWorldStyle: HelloWorldStyle, @unchecked Sendable {
     private var _makeBody: (HelloWorldStyle.Configuration) -> AnyView
 
     init<S: HelloWorldStyle>(_ style: S) {
@@ -130,6 +136,7 @@ extension View {
     }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension DefaultHelloWorldStyle {
     func inspect() throws -> InspectableView<ViewType.ClassifiedView> {
@@ -138,6 +145,7 @@ extension DefaultHelloWorldStyle {
     }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension RedOutlineHelloWorldStyle {
     func inspect() throws -> InspectableView<ViewType.ClassifiedView> {

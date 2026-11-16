@@ -1,10 +1,20 @@
 import SwiftUI
 import Combine
+#if canImport(XCTest)
 import XCTest
+#else
+public struct XCTestExpectation {
+    public let description: String
+    public func fulfill() { }
+}
 
+private func XCTFail(_ message: String = "", file: StaticString = #filePath, line: UInt = #line) { }
+#endif
+
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public protocol InspectionEmissary: AnyObject {
-    
+public protocol InspectionEmissary: AnyObject, Sendable {
+
     associatedtype V
     var notice: PassthroughSubject<UInt, Never> { get }
     var callbacks: [UInt: (V) -> Void] { get set }
@@ -15,7 +25,7 @@ public protocol InspectionEmissary: AnyObject {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectionEmissary where V: View {
     
-    typealias ViewInspection = (InspectableView<ViewType.View<V>>) throws -> Void
+    typealias ViewInspection = @MainActor @Sendable (InspectableView<ViewType.View<V>>) async throws -> Void
     
     @discardableResult
     func inspect(after delay: TimeInterval = 0,
@@ -25,7 +35,19 @@ public extension InspectionEmissary where V: View {
         return inspect(after: delay, function: function, file: file, line: line) { view in
             let unwrapped = try view.inspect(function: function)
                 .asInspectableView(ofType: ViewType.View<V>.self)
-            return try inspection(unwrapped)
+            return try await inspection(unwrapped)
+        }
+    }
+    
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func inspect(after delay: SuspendingClock.Duration = .seconds(0),
+                 function: String = #function, file: StaticString = #file, line: UInt = #line,
+                 _ inspection: @escaping ViewInspection
+    ) async throws {
+        return try await inspect(after: delay, function: function, file: file, line: line) { view in
+            let unwrapped = try view.inspect(function: function)
+                .asInspectableView(ofType: ViewType.View<V>.self)
+            return try await inspection(unwrapped)
         }
     }
     
@@ -38,7 +60,20 @@ public extension InspectionEmissary where V: View {
         return inspect(onReceive: publisher, after: delay, function: function, file: file, line: line) { view in
             let unwrapped = try view.inspect(function: function)
                 .asInspectableView(ofType: ViewType.View<V>.self)
-            return try inspection(unwrapped)
+            return try await inspection(unwrapped)
+        }
+    }
+    
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func inspect<P>(onReceive publisher: P,
+                    after delay: SuspendingClock.Duration = .seconds(0),
+                    function: String = #function, file: StaticString = #file, line: UInt = #line,
+                    _ inspection: @escaping ViewInspection
+    ) async throws where P: Publisher {
+        return try await inspect(onReceive: publisher, after: delay, function: function, file: file, line: line) { view in
+            let unwrapped = try view.inspect(function: function)
+                .asInspectableView(ofType: ViewType.View<V>.self)
+            return try await inspection(unwrapped)
         }
     }
 }
@@ -48,7 +83,7 @@ public extension InspectionEmissary where V: View {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectionEmissary where V: ViewModifier {
     
-    typealias ViewModifierInspection = (InspectableView<ViewType.ViewModifier<V>>) throws -> Void
+    typealias ViewModifierInspection = @MainActor @Sendable (InspectableView<ViewType.ViewModifier<V>>) async throws -> Void
     
     @discardableResult
     func inspect(after delay: TimeInterval = 0,
@@ -56,7 +91,17 @@ public extension InspectionEmissary where V: ViewModifier {
                  _ inspection: @escaping ViewModifierInspection
     ) -> XCTestExpectation {
         return inspect(after: delay, function: function, file: file, line: line) { view in
-            return try inspection(try view.inspect(function: function))
+            return try await inspection(try view.inspect(function: function))
+        }
+    }
+    
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func inspect(after delay: SuspendingClock.Duration = .seconds(0),
+                 function: String = #function, file: StaticString = #file, line: UInt = #line,
+                 _ inspection: @escaping ViewModifierInspection
+    ) async throws {
+        return try await inspect(after: delay, function: function, file: file, line: line) { view in
+            return try await inspection(try view.inspect(function: function))
         }
     }
     
@@ -67,7 +112,18 @@ public extension InspectionEmissary where V: ViewModifier {
                     _ inspection: @escaping ViewModifierInspection
     ) -> XCTestExpectation where P: Publisher, P.Failure == Never {
         return inspect(onReceive: publisher, after: delay, function: function, file: file, line: line) { view in
-            return try inspection(try view.inspect(function: function))
+            return try await inspection(try view.inspect(function: function))
+        }
+    }
+    
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func inspect<P>(onReceive publisher: P,
+                    after delay: SuspendingClock.Duration = .seconds(0),
+                    function: String = #function, file: StaticString = #file, line: UInt = #line,
+                    _ inspection: @escaping ViewModifierInspection
+    ) async throws where P: Publisher {
+        return try await inspect(onReceive: publisher, after: delay, function: function, file: file, line: line) { view in
+            return try await inspection(try view.inspect(function: function))
         }
     }
 }
@@ -77,7 +133,7 @@ public extension InspectionEmissary where V: ViewModifier {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension InspectionEmissary {
     
-    typealias SubjectInspection = (_ subject: V) throws -> Void
+    typealias SubjectInspection = @MainActor @Sendable (_ subject: V) async throws -> Void
     
     func inspect(after delay: TimeInterval,
                  function: String, file: StaticString, line: UInt,
@@ -89,6 +145,14 @@ private extension InspectionEmissary {
             notice?.send(line)
         }
         return exp
+    }
+    
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func inspect(after delay: SuspendingClock.Duration,
+                 function: String, file: StaticString, line: UInt,
+                 inspection: @escaping SubjectInspection
+    ) async throws {
+        try await setup(inspection: inspection, delay: delay, function: function, file: file, line: line)
     }
     
     func inspect<P>(onReceive publisher: P,
@@ -108,20 +172,55 @@ private extension InspectionEmissary {
         }
         return exp
     }
+
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func inspect<P>(onReceive publisher: P,
+                    after delay: SuspendingClock.Duration,
+                    function: String, file: StaticString, line: UInt,
+                    inspection: @escaping SubjectInspection
+    ) async throws where P: Publisher {
+        // This simply awaits for the first value from the publisher:
+        for try await _ in publisher.values.map({ _ in 0 }) { break }
+        try await setup(inspection: inspection, delay: delay, function: function, file: file, line: line)
+    }
     
     func setup(inspection: @escaping SubjectInspection,
                expectation: XCTestExpectation,
                function: String, file: StaticString, line: UInt) {
-        callbacks[line] = { [weak self] view in
-            do {
-                try inspection(view)
-            } catch let error {
-                XCTFail("\(error.localizedDescription)", file: file, line: line)
+        callbacks[line] = { view in
+            Task { @MainActor in
+                do {
+                    try await inspection(view)
+                } catch {
+                    XCTFail("\(error.localizedDescription)", file: file, line: line)
+                }
+                if self.callbacks.isEmpty {
+                    ViewHosting.expel(function: function)
+                }
+                expectation.fulfill()
             }
-            if self?.callbacks.count == 0 {
-                ViewHosting.expel(function: function)
+        }
+    }
+
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func setup(inspection: @escaping SubjectInspection,
+               delay: SuspendingClock.Duration,
+               function: String, file: StaticString, line: UInt) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor in
+                callbacks[line] = { view in
+                    Task { @MainActor in
+                        do {
+                            continuation.resume(returning: try await inspection(view))
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                }
+                let clock = SuspendingClock()
+                try await clock.sleep(until: clock.now + delay)
+                notice.send(line)
             }
-            expectation.fulfill()
         }
     }
 }
@@ -135,10 +234,11 @@ public extension View {
                      function: String = #function, file: StaticString = #file, line: UInt = #line,
                      perform: @escaping ((InspectableView<ViewType.View<Self>>) throws -> Void)
     ) -> XCTestExpectation {
-        return Inspector.injectInspectionCallback(
-            value: &self, keyPath: keyPath, function: function, file: file, line: line) { body in
+        let injector = Inspector.CallbackInjector(value: self, function: function, line: line, keyPath: keyPath) { body in
             body.inspect(function: function, file: file, line: line, inspection: perform)
         }
+        self = injector.value
+        return injector.expectation
     }
 }
 
@@ -149,27 +249,40 @@ public extension ViewModifier {
                      function: String = #function, file: StaticString = #file, line: UInt = #line,
                      perform: @escaping ((InspectableView<ViewType.ViewModifier<Self>>) throws -> Void)
     ) -> XCTestExpectation {
-        return Inspector.injectInspectionCallback(
-            value: &self, keyPath: keyPath, function: function, file: file, line: line) { body in
+        let injector = Inspector.CallbackInjector(value: self, function: function, line: line, keyPath: keyPath) { body in
             body.inspect(function: function, file: file, line: line, inspection: perform)
         }
+        self = injector.value
+        return injector.expectation
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension Inspector {
-    static func injectInspectionCallback<T>(
-        value: inout T, keyPath: WritableKeyPath<T, ((T) -> Void)?>,
-        function: String, file: StaticString, line: UInt,
-        inspection: @escaping ((T) -> Void)
-    ) -> XCTestExpectation {
-        let description = Inspector.typeName(value: self) + " callback at line #\(line)"
-        let expectation = XCTestExpectation(description: description)
-        value[keyPath: keyPath] = { body in
-            inspection(body)
-            ViewHosting.expel(function: function)
-            expectation.fulfill()
+
+    @MainActor
+    final class CallbackInjector<T> {
+        var value: T
+        let keyPath: WritableKeyPath<T, ((T) -> Void)?>
+        let inspection: (T) -> Void
+        let expectation: XCTestExpectation
+
+        init(value: T, function: String, line: UInt,
+             keyPath: WritableKeyPath<T, ((T) -> Void)?>,
+             inspection: @escaping (T) -> Void) {
+            self.value = value
+            self.keyPath = keyPath
+            self.inspection = inspection
+            let description = Inspector.typeName(value: value) + " callback at line #\(line)"
+            let expectation = XCTestExpectation(description: description)
+            self.expectation = expectation
+            self.value[keyPath: keyPath] = { body in
+                Task { @MainActor in
+                    inspection(body)
+                    ViewHosting.expel(function: function)
+                    expectation.fulfill()
+                }
+            }
         }
-        return expectation
     }
 }

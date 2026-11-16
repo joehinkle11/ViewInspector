@@ -6,11 +6,32 @@ import SwiftUI
 @available(*, deprecated, message: "Conformance to Inspectable is no longer required")
 public protocol Inspectable { }
 
+/// A protocol for views that need to expose a custom view to `ViewInspector` that differs from its default inspectable
+/// representation.
+///
+/// A use case for this might be a `UIViewRepresentable`that contains some hosted SwiftUI views (consider a wrapped
+/// `UICollectionView`). You can return a custom SwiftUI view that sufficiently represents your view hierarchy to
+/// `ViewInspector`. Without this, `ViewInspector` would be unable to inspect the `UIViewRepresentable`.
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public protocol CustomInspectable {
+    associatedtype View: SwiftUI.View
+    #if swift(>=6.0)
+    @MainActor
+    #endif
+    var customInspectableContent: View { get }
+}
+
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public protocol SingleViewContent {
     static func child(_ content: Content) throws -> Content
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public protocol MultipleViewContent {
     static func children(_ content: Content) throws -> LazyGroup<Content>
@@ -19,6 +40,9 @@ public protocol MultipleViewContent {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal typealias SupplementaryView = UnwrappedView
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal protocol SupplementaryChildren {
     static func supplementaryChildren(_ parent: UnwrappedView) throws -> LazyGroup<SupplementaryView>
@@ -99,7 +123,7 @@ internal extension Array where Element == String {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public struct ViewType { }
+public enum ViewType { }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewType {
@@ -122,12 +146,19 @@ internal extension ViewType {
 // MARK: - Content
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+#if swift(>=6.0)
+@MainActor
+#endif
 public struct Content {
     let view: Any
     let medium: Medium
     
     internal init(_ view: Any, medium: Medium = .empty) {
-        self.view = view
+        if let customInspectable = view as? any CustomInspectable {
+            self.view = customInspectable.customInspectableContent
+        } else {
+            self.view = view
+        }
         self.medium = medium
     }
 }
@@ -140,6 +171,20 @@ internal extension Content {
         let environmentModifiers: [EnvironmentModifier]
         let environmentObjects: [AnyObject]
         
+        /// The values of the enclosing `.environment(keyPath, value)` modifiers,
+        /// in the order of their application, for injecting in the `@Environment` properties.
+        #if swift(>=6.0)
+        @MainActor
+        #endif
+        var environmentValues: [EnvironmentValueInjection] {
+            return environmentModifiers.compactMap { modifier in
+                guard let keyPath = (try? modifier.keyPath()) as? AnyKeyPath,
+                      let value = try? modifier.value()
+                else { return nil }
+                return (keyPath, value)
+            }
+        }
+
         static var empty: Medium {
             return .init(viewModifiers: [],
                          transitiveViewModifiers: [],
@@ -181,7 +226,10 @@ internal extension Content {
                          environmentModifiers: environmentModifiers,
                          environmentObjects: environmentObjects)
         }
-        
+
+        #if swift(>=6.0)
+        @MainActor
+        #endif
         func removingCustomViewModifiers() -> Medium {
             let modifiers = viewModifiers
                 .filter {
@@ -198,6 +246,9 @@ internal extension Content {
 
 // MARK: - Binding helper
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension Binding {
     init(wrappedValue: Value) {
@@ -269,16 +320,25 @@ extension InspectionError: CustomStringConvertible, LocalizedError {
 
 // MARK: - ViewProvider
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal protocol SingleViewProvider {
     func view() throws -> Any
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal protocol MultipleViewProvider {
     func views() throws -> LazyGroup<Any>
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal protocol ElementViewProvider {
     func view(_ element: Any) throws -> Any

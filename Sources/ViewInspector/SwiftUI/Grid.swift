@@ -4,11 +4,11 @@ import SwiftUI
 public extension ViewType {
     
     struct Grid: KnownViewType {
-        public static var typePrefix: String = "Grid"
+        public static let typePrefix: String = "Grid"
     }
     
     struct GridRow: KnownViewType {
-        public static var typePrefix: String = "GridRow"
+        public static let typePrefix: String = "GridRow"
     }
 }
 

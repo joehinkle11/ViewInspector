@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class NavigationBarModifiersTests: XCTestCase {
     
@@ -19,12 +20,12 @@ final class NavigationBarModifiersTests: XCTestCase {
     
     #if !os(macOS)
     func testNavigationBarHidden() throws {
-        let sut1 = try EmptyView().navigationBarHidden(false).inspect()
-        let sut2 = try EmptyView().navigationBarHidden(true).inspect()
-        let sut3 = try EmptyView().padding().inspect()
-        XCTAssertFalse(try sut1.navigationBarHidden())
-        XCTAssertTrue(try sut2.navigationBarHidden())
-        XCTAssertThrows(try sut3.navigationBarHidden(),
+        let sut1 = EmptyView().navigationBarHidden(false)
+        let sut2 = EmptyView().navigationBarHidden(true)
+        let sut3 = EmptyView().padding()
+        XCTAssertFalse(try sut1.inspect().navigationBarHidden())
+        XCTAssertTrue(try sut2.inspect().navigationBarHidden())
+        XCTAssertThrows(try sut3.inspect().navigationBarHidden(),
             "EmptyView does not have 'navigationBarHidden' modifier")
     }
     
@@ -40,7 +41,8 @@ final class NavigationBarModifiersTests: XCTestCase {
     #endif
 }
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
+@MainActor
 @available(iOS 13.0, tvOS 13.0, *)
 final class NavigationBarItemsTests: XCTestCase {
     
@@ -56,7 +58,7 @@ final class NavigationBarItemsTests: XCTestCase {
             .navigationBarItems(trailing: Text("abc"))
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
-    
+
     func testIncorrectUnwrap() throws {
         try skipForiOS15()
         let view = NavigationView {
@@ -67,7 +69,7 @@ final class NavigationBarItemsTests: XCTestCase {
             try view.inspect().navigationView().list(0).text(0),
             "Please insert '.navigationBarItems()' before list(0) for unwrapping the underlying view hierarchy.")
     }
-    
+
     func testUnknownHierarchyTypeUnwrap() throws {
         try skipForiOS15()
         let view = NavigationView {
@@ -78,7 +80,7 @@ final class NavigationBarItemsTests: XCTestCase {
             try view.inspect().navigationView().navigationBarItems().list(),
             "Please substitute 'List<Never, Text>.self' as the parameter for 'navigationBarItems()' inspection call")
     }
-    
+
     func testKnownHierarchyTypeUnwrap() throws {
         try skipForiOS15()
         let string = "abc"
@@ -123,7 +125,7 @@ final class NavigationBarItemsTests: XCTestCase {
             try sut.inspect().navigationBarItems(),
             "EmptyView does not have 'navigationBarItems' modifier")
     }
-    
+
     func testCustomViewUnwrapStepOne() throws {
         try skipForiOS15()
         let sut = TestView()
@@ -132,9 +134,10 @@ final class NavigationBarItemsTests: XCTestCase {
             "Please insert '.navigationBarItems()' before vStack() for unwrapping the underlying view hierarchy.")
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 1.0)
     }
-    
+
     func testCustomViewUnwrapStepTwo() throws {
         try skipForiOS15()
         let sut = TestView()
@@ -143,9 +146,10 @@ final class NavigationBarItemsTests: XCTestCase {
             "Please substitute 'VStack<Text>.self' as the parameter for 'navigationBarItems()' inspection call")
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 1.0)
     }
-    
+
     func testCustomViewUnwrapStepThree() throws {
         try skipForiOS15()
         let sut = TestView()
@@ -155,6 +159,7 @@ final class NavigationBarItemsTests: XCTestCase {
             XCTAssertEqual(value, "abc")
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 1.0)
     }
 }
@@ -178,6 +183,7 @@ private struct TestView: View {
 }
 #endif
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class StatusBarConfigurationTests: XCTestCase {
     
@@ -192,4 +198,37 @@ final class StatusBarConfigurationTests: XCTestCase {
             "EmptyView does not have 'statusBar(hidden:)' modifier")
     }
     #endif
+}
+
+@MainActor
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+final class NavigationTitleBindingTests: XCTestCase {
+
+    func testNavigationTitleInspection() throws {
+        let sut = EmptyView().navigationTitle(.constant("bound"))
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testNavigationTitleBinding() throws {
+        let binding = Binding(wrappedValue: "123")
+        let sut = try EmptyView().navigationTitle(binding).inspect()
+        XCTAssertEqual(try sut.navigationTitle(), "123")
+        try sut.setNavigationTitle("abc")
+        XCTAssertEqual(try sut.navigationTitle(), "abc")
+    }
+
+    func testNavigationTitleText() throws {
+        XCTAssertThrows(try EmptyView().navigationTitle(Text("123")).inspect().navigationTitle(),
+                        "navigationTitle() is only supported with a Binding<String> parameter.")
+        XCTAssertThrows(try EmptyView().navigationTitle("123").inspect().navigationTitle(),
+                        "navigationTitle() is only supported with a Binding<String> parameter.")
+        XCTAssertThrows(try EmptyView().navigationTitle(String("123")).inspect().navigationTitle(),
+                        "navigationTitle() is only supported with a Binding<String> parameter.")
+        XCTAssertThrows(try EmptyView().navigationTitle(Text("123")).inspect().setNavigationTitle(""),
+                        "navigationTitle() is only supported with a Binding<String> parameter.")
+        XCTAssertThrows(try EmptyView().navigationTitle("123").inspect().setNavigationTitle(""),
+                        "navigationTitle() is only supported with a Binding<String> parameter.")
+        XCTAssertThrows(try EmptyView().navigationTitle(String("123")).inspect().setNavigationTitle(""),
+                        "navigationTitle() is only supported with a Binding<String> parameter.")
+    }
 }

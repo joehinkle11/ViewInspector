@@ -5,9 +5,10 @@ import Combine
 
 // MARK: - ViewHitTestingTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewHitTestingTests: XCTestCase {
-    
+
     func testAllowsHitTesting() throws {
         let sut = EmptyView().allowsHitTesting(true)
         XCTAssertNoThrow(try sut.inspect().emptyView())

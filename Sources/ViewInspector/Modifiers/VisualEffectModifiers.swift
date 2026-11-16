@@ -98,6 +98,31 @@ public extension InspectableView {
     }
 }
 
+// MARK: - ViewCompositing
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension InspectableView {
+
+    func compositingGroup() throws {
+        _ = try modifierAttribute(
+            modifierName: "_CompositingGroupEffect", path: "modifier",
+            type: Any.self, call: "compositingGroup")
+    }
+
+    /** The `colorMode` of the `drawingGroup` modifier.
+
+     The `opaque` parameter is not exposed: SwiftUI does not store it as a value,
+     it only sets a bit in a private bit mask.
+     */
+    func drawingGroup() throws -> ColorRenderingMode {
+        let options = try modifierAttribute(
+            modifierName: "_DrawingGroupEffect", path: "modifier|rasterizationOptions",
+            type: Any.self, call: "drawingGroup")
+        return try Inspector.attribute(
+            label: "colorMode", value: options, type: ColorRenderingMode.self)
+    }
+}
+
 // MARK: - ViewMasking
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -127,6 +152,14 @@ public extension InspectableView {
     
     func mask(_ index: Int? = nil) throws -> InspectableView<ViewType.ClassifiedView> {
         return try contentForModifierLookup.mask(parent: self, index: index)
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+public extension InspectableView {
+    func cornerRadii() throws -> RectangleCornerRadii {
+        let shape = try clipShape(UnevenRoundedRectangle.self)
+        return shape.cornerRadii
     }
 }
 

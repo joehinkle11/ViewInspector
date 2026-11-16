@@ -1,29 +1,53 @@
+import Foundation
 import SwiftUI
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public struct Inspector {
+public enum Inspector { }
 
+// MARK: - Public methods
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension Inspector {
+    /**
+     Use this function to lookup the struct content:
+     ```
+     (lldb) po Inspector.print(view) as AnyObject
+     ```
+     */
+    #if swift(>=6.0)
+    @MainActor
+    #endif
+    static func print(_ value: Any) -> String {
+        let tree = attributesTree(value: value, medium: .empty, visited: [])
+        return typeName(value: value) + print(tree, level: 1)
+    }
+}
+
+// MARK: - Internal methods
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+internal extension Inspector {
     /// Removes the "(unknown context at <memory_address>)" portion of a type name.
     /// Calls to this method are memoized and retained for the lifetime of the program.
     /// - Parameter typeName: The raw type name. (e.g. `SomeTypeName.(unknown context at $138b3290c).SomePropertyName`)
     /// - Returns: The sanitized type name. (e.g. `SomeTypeName.SomePropertyName`)
     static func sanitizeNamespace(ofTypeName typeName: String) -> String {
         var str = typeName
-
-        if let sanitized = sanitizedNamespacesCache[typeName] {
+        if let sanitized = cache.protected({ $0.sanitizedNamespaces[typeName] }) {
             return sanitized
         }
 
         let range = NSRange(location: 0, length: str.utf16.count)
-        str = sanitizeNamespaceRegex.stringByReplacingMatches(in: str,
-                                                              options: [],
-                                                              range: range,
-                                                              withTemplate: "")
+        str = sanitizeNamespaceRegex
+            .stringByReplacingMatches(in: str, options: [],
+                                      range: range, withTemplate: "")
 
         // For Objective-C classes String(reflecting:) sometimes adds the namespace __C, drop it too
         str = str.replacingOccurrences(of: "<__C.", with: "<")
 
-        Inspector.sanitizedNamespacesCache[typeName] = str
+        cache.protected {
+            $0.sanitizedNamespaces[typeName] = str
+        }
 
         return str
 
@@ -38,7 +62,7 @@ public struct Inspector {
     static func replaceGenericParameters(inTypeName typeName: String,
                                          withReplacement replacement: String) -> String {
         // Check memoized value
-        if let typeNameDict = Inspector.replacedGenericParametersCache[typeName],
+        if let typeNameDict = cache.protected({ $0.replacedGenericParameters[typeName] }),
            let cachedResult = typeNameDict[replacement] {
             return cachedResult
         }
@@ -48,9 +72,11 @@ public struct Inspector {
                                                            withReplacement: replacement)
 
         // Store memoized value
-        var typeNameDict = Inspector.replacedGenericParametersCache[typeName] ?? [:]
-        typeNameDict[replacement] = result
-        Inspector.replacedGenericParametersCache[typeName] = typeNameDict
+        cache.protected { cache in
+            var typeNameDict = cache.replacedGenericParameters[typeName] ?? [:]
+            typeNameDict[replacement] = result
+            cache.replacedGenericParameters[typeName] = typeNameDict
+        }
 
         return result
     }
@@ -92,8 +118,19 @@ public struct Inspector {
         return typeName
     }
 
-    private static var replacedGenericParametersCache: [String: [String: String]] = [:]
-    private static var sanitizedNamespacesCache: [String: String] = [:]
+    private final class Cache: @unchecked Sendable {
+        private let lock = NSLock()
+        var replacedGenericParameters: [String: [String: String]] = [:]
+        var sanitizedNamespaces: [String: String] = [:]
+
+        @discardableResult
+        func protected<T>(_ closure: (Cache) throws -> T) rethrows -> T {
+            lock.lock()
+            defer { lock.unlock() }
+            return try closure(self)
+        }
+    }
+    private static let cache = Cache()
 
     private static let sanitizeNamespacePatterns = [
         "(\\.\\(unknown context at ..........\\))",
@@ -104,9 +141,8 @@ public struct Inspector {
     ]
 
     private static let sanitizeNamespaceRegex = {
-        // swiftlint:disable force_try
+        // swiftlint:disable:next force_try
         try! NSRegularExpression(pattern: sanitizeNamespacePatterns.joined(separator: "|"))
-        // swiftlint:enable force_try
     }()
 }
 
@@ -143,10 +179,27 @@ internal extension Inspector {
 
     static func cast<T>(value: Any, type: T.Type) throws -> T {
         guard let casted = value as? T else {
+            #if swift(>=6.0)
+            if let casted = castSendable(value: value, type: type) {
+                return casted
+            }
+            #endif
             throw InspectionError.typeMismatch(value, T.self)
         }
         return casted
     }
+
+    // This method exists because Swift 6 refuses the cast Any to Sendable
+    #if swift(>=6.0)
+    private static func castSendable<T>(value: Any, type: T.Type) -> T? {
+        typealias VoidClosure = @MainActor @Sendable () -> Void
+        if type == VoidClosure.self {
+            return try? unsafeMemoryRebind(value: value, type: type)
+        }
+        // Add more cases as needed
+        return nil
+    }
+    #endif
 
     static func unsafeMemoryRebind<V, T>(value: V, type: T.Type) throws -> T {
         guard MemoryLayout<V>.size == MemoryLayout<T>.size else {
@@ -219,19 +272,11 @@ internal extension Inspector {
 // MARK: - Attributes lookup
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public extension Inspector {
+internal extension Inspector {
 
-    /**
-     Use this function to lookup the struct content:
-     ```
-     (lldb) po Inspector.print(view) as AnyObject
-     ```
-     */
-    static func print(_ value: Any) -> String {
-        let tree = attributesTree(value: value, medium: .empty, visited: [])
-        return typeName(value: value) + print(tree, level: 1)
-    }
-
+    #if swift(>=6.0)
+    @MainActor
+    #endif
     fileprivate static func print(_ value: Any, level: Int) -> String {
         let prefix = Inspector.newline(value: value)
         if let array = value as? [Any] {
@@ -256,6 +301,9 @@ public extension Inspector {
         return needsNewLine ? "\n" : ""
     }
 
+    #if swift(>=6.0)
+    @MainActor
+    #endif
     private static func attributesTree(value: Any, medium: Content.Medium, visited: [AnyObject]) -> Any {
         var visited = visited
         if type(of: value) is AnyClass {
@@ -278,11 +326,18 @@ public extension Inspector {
         children.enumerated().forEach { child in
             let childName = child.element.label ?? "[\(child.offset)]"
             let childType = typeName(value: child.element.value)
-            dict[childName + ": " + childType] = attributesTree(
-                value: child.element.value, medium: medium, visited: visited)
+            let value: Any
+            if childType.contains("EnvironmentPropertyKey") {
+                // lookup causes infinite loop
+                value = "<skipped>"
+            } else {
+                value = attributesTree(
+                    value: child.element.value, medium: medium, visited: visited)
+            }
+            dict[childName + ": " + childType] = value
         }
         if let contentExtractor = try? ContentExtractor(source: value),
-           let content = try? contentExtractor.extractContent(environmentObjects: medium.environmentObjects) {
+           let content = try? contentExtractor.extractContent(medium: medium) {
             let childType = typeName(value: content)
             dict["body: " + childType] = attributesTree(value: content, medium: medium, visited: visited)
         }
@@ -296,6 +351,9 @@ public extension Inspector {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 fileprivate extension Dictionary where Key == String {
     func description(level: Int) -> String {
@@ -306,6 +364,9 @@ fileprivate extension Dictionary where Key == String {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 fileprivate extension Array {
     func description(level: Int) -> String {
@@ -323,29 +384,52 @@ fileprivate extension Array {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension Inspector {
 
+    #if swift(>=6.0)
+    @MainActor
+    #endif
     static func viewsInContainer(view: Any, medium: Content.Medium) throws -> LazyGroup<Content> {
         let unwrappedContainer = try Inspector.unwrap(content: Content(view, medium: medium.resettingViewModifiers()))
-        guard Inspector.isTupleView(unwrappedContainer.view) else {
-            return LazyGroup(count: 1) { _ in unwrappedContainer }
+        if Inspector.isTupleView(unwrappedContainer.view) {
+            return try ViewType.TupleView.children(unwrappedContainer)
         }
-        return try ViewType.TupleView.children(unwrappedContainer)
+        if Inspector.isTupleContentView(unwrappedContainer.view) {
+            return try ViewType.TupleContentView.children(unwrappedContainer)
+        }
+        return LazyGroup(count: 1) { _ in unwrappedContainer }
     }
 
     static func isTupleView(_ view: Any) -> Bool {
         return Inspector.typeName(value: view, generics: .remove) == ViewType.TupleView.typePrefix
     }
 
+    static func isTupleContentView(_ view: Any) -> Bool {
+        return Inspector.typeName(value: view, generics: .remove) == ViewType.TupleContentView.typePrefix
+    }
+
+    /// `ViewBuilder` wraps multiple children in `TupleView`, or in `TupleContent` since iOS 27
+    static func isViewTuple(_ view: Any) -> Bool {
+        return isTupleView(view) || isTupleContentView(view)
+    }
+
+    #if swift(>=6.0)
+    @MainActor
+    #endif
     static func unwrap(view: Any, medium: Content.Medium) throws -> Content {
         return try unwrap(content: Content(view, medium: medium))
     }
 
-    // swiftlint:disable cyclomatic_complexity
+    #if swift(>=6.0)
+    @MainActor
+    #endif
+    // swiftlint:disable:next cyclomatic_complexity
     static func unwrap(content: Content) throws -> Content {
         switch Inspector.typeName(value: content.view, generics: .remove) {
         case "Tree":
             return try ViewType.TreeView.child(content)
         case "IDView":
             return try ViewType.IDView.child(content)
+        case "StaticIf":
+            return try ViewType.StaticIf.child(content)
         case "Optional":
             return try ViewType.OptionalContent.child(content)
         case "EquatableView":
@@ -370,11 +454,14 @@ internal extension Inspector {
             return try ViewType.PopoverContent.child(content)
         case "WrappedContent":
             return try ViewType.WrappedContent.child(content)
+        case "GroupElementsOfContent":
+            return try ViewType.GroupElementsOfContent.child(content)
+        case "GroupSectionsOfContent":
+            return try ViewType.GroupSectionsOfContent.child(content)
         default:
             return content
         }
     }
-    // swiftlint:enable cyclomatic_complexity
 
     static func guardType(value: Any, namespacedPrefixes: [String], inspectionCall: String) throws {
 

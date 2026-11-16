@@ -5,6 +5,7 @@ import Combine
 
 // MARK: - ViewAccessibilityTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewAccessibilityTests: XCTestCase {
     
@@ -163,6 +164,7 @@ final class ViewAccessibilityTests: XCTestCase {
     }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewAccessibilityActionTests: XCTestCase {
     
@@ -170,7 +172,22 @@ final class ViewAccessibilityActionTests: XCTestCase {
         let sut = EmptyView().accessibilityAction(.default) { }
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
-    
+
+    func testAccessibilityActions() throws {
+        guard #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+        else { throw XCTSkip() }
+        let view = EmptyView().accessibilityActions {
+            EmptyView()
+            AnyView(Text("test"))
+        }
+        let sut = try view.inspect()
+        let view1 = try sut.emptyView().accessibilityActions().anyView(1).text()
+        XCTAssertEqual(view1.pathToRoot,
+                       "emptyView().accessibilityActions().anyView(1).text()")
+        let view2 = try sut.find(text: "test")
+        XCTAssertEqual(try view2.string(), "test")
+    }
+
     func testAccessibilityActionInspection() throws {
         guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
@@ -272,6 +289,147 @@ final class ViewAccessibilityActionTests: XCTestCase {
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
     
+    func testAccessibilityTraitsInspection() throws {
+        let sut1 = try EmptyView().accessibility(addTraits: .isHeader)
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertTrue(sut1.contains(.isHeader))
+        XCTAssertFalse(sut1.contains(.isButton))
+        XCTAssertEqual(sut1, .isHeader)
+        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
+            let sut2 = try Text("abc").accessibilityAddTraits([.isHeader, .isImage])
+                .inspect().text().accessibilityTraits()
+            XCTAssertEqual(sut2, [.isHeader, .isImage])
+        }
+        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
+            let sut3 = try EmptyView().accessibilityAddTraits(.isToggle)
+                .inspect().emptyView().accessibilityTraits()
+            XCTAssertEqual(sut3, .isToggle)
+        }
+    }
+    
+    func testAccessibilityTraitsRemovalInspection() throws {
+        let sut1 = try EmptyView()
+            .accessibility(addTraits: [.isHeader, .isButton])
+            .accessibility(removeTraits: .isButton)
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut1, .isHeader)
+        let sut2 = try EmptyView()
+            .accessibility(removeTraits: .isButton)
+            .accessibility(addTraits: .isButton)
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut2, .isButton)
+        let sut3 = try EmptyView().accessibility(removeTraits: .isButton)
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut3, AccessibilityTraits())
+    }
+
+    func testAccessibilityEmptyTraitsInspection() throws {
+        let sut1 = try EmptyView().accessibility(addTraits: AccessibilityTraits())
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut1, AccessibilityTraits())
+        let sut2 = try EmptyView().accessibility(removeTraits: AccessibilityTraits())
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut2, AccessibilityTraits())
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { return }
+        let sut3 = try EmptyView().accessibilityAddTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut3, AccessibilityTraits())
+        let sut4 = try Text("abc").accessibilityAddTraits([])
+            .inspect().text().accessibilityTraits()
+        XCTAssertEqual(sut4, AccessibilityTraits())
+        let sut5 = try EmptyView().accessibilityRemoveTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut5, AccessibilityTraits())
+    }
+
+    func testAccessibilityEmptyTraitsMergedWithSiblingModifier() throws {
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { return }
+        /* SwiftUI merges adjacent accessibility modifiers into a single
+           `AccessibilityAttachmentModifier`, and an empty trait set leaves no value in it. */
+        let sut1 = try EmptyView().accessibilityLabel(Text("abc")).accessibilityAddTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut1, AccessibilityTraits())
+        let sut2 = try EmptyView().accessibilityAddTraits([]).accessibilityLabel(Text("abc"))
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut2, AccessibilityTraits())
+        let sut3 = try EmptyView().accessibilityHidden(true).accessibilityAddTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut3, AccessibilityTraits())
+        let sut4 = try EmptyView().accessibilityLabel(Text("abc")).accessibilityRemoveTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut4, AccessibilityTraits())
+    }
+
+    func testAccessibilityConditionalTraitsMergedWithSiblingModifier() throws {
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { return }
+        func view(isSelected: Bool) -> some View {
+            EmptyView()
+                .accessibilityLabel(Text("abc"))
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        }
+        let sut1 = try view(isSelected: false).inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut1, AccessibilityTraits())
+        let sut2 = try view(isSelected: true).inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut2, .isSelected)
+    }
+
+    func testAccessibilityEmptyAndNonEmptyTraitsInspection() throws {
+        let sut1 = try EmptyView()
+            .accessibility(addTraits: AccessibilityTraits())
+            .accessibility(removeTraits: .isButton)
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut1, AccessibilityTraits())
+        let sut2 = try EmptyView()
+            .accessibility(addTraits: .isButton)
+            .accessibility(removeTraits: AccessibilityTraits())
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut2, .isButton)
+        let sut3 = try EmptyView()
+            .accessibility(addTraits: AccessibilityTraits())
+            .accessibility(removeTraits: AccessibilityTraits())
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut3, AccessibilityTraits())
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { return }
+        let sut4 = try EmptyView().accessibilityAddTraits([]).accessibilityRemoveTraits(.isButton)
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut4, AccessibilityTraits())
+        let sut5 = try EmptyView().accessibilityAddTraits(.isButton).accessibilityRemoveTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut5, .isButton)
+        let sut6 = try EmptyView().accessibilityAddTraits([]).accessibilityRemoveTraits([])
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut6, AccessibilityTraits())
+    }
+
+    func testAccessibilityTraitsInspectionAmongOtherModifiers() throws {
+        let sut = try EmptyView()
+            .accessibility(label: Text("abc"))
+            .accessibility(addTraits: .isImage)
+            .padding()
+            .accessibility(hint: Text("xyz"))
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut, .isImage)
+    }
+    
+    func testMissingAccessibilityTraits() throws {
+        let sut = try EmptyView().inspect().emptyView()
+        XCTAssertThrows(
+            try sut.accessibilityTraits(),
+            "EmptyView does not have 'accessibilityAddTraits' modifier")
+    }
+
+    func testAccessibilityTraitsWithoutTraitModifier() throws {
+        /* An accessibility modifier that stores no trait value is indistinguishable
+           from a trait modifier resolving to an empty set, so it reports an empty set. */
+        let sut = try EmptyView().accessibility(label: Text("abc"))
+            .inspect().emptyView().accessibilityTraits()
+        XCTAssertEqual(sut, AccessibilityTraits())
+    }
+    
     func testAccessibilitySortPriority() throws {
         let sut = EmptyView().accessibility(sortPriority: 5)
         XCTAssertNoThrow(try sut.inspect().emptyView())
@@ -294,6 +452,7 @@ final class ViewAccessibilityActionTests: XCTestCase {
 
         XCTAssertEqual(try sut.accessibilityLabel().string(), label)
         XCTAssertEqual(try sut.accessibilityValue().string(), value)
+        XCTAssertEqual(try sut.accessibilityTraits(), .isImage)
     }
     
     func testMissingAccessibilityAttribute() throws {

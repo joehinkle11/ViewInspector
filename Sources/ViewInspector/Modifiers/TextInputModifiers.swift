@@ -138,6 +138,26 @@ public extension InspectableView {
     }
 }
 
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+public extension InspectableView {
+
+    func textCase() throws -> Text.Case? {
+        let reference = EmptyView().textCase(.uppercase)
+        let keyPath = try Inspector.environmentKeyPath(Optional<Text.Case>.self, reference)
+        return try environment(keyPath, call: "textCase")
+    }
+}
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+public extension InspectableView {
+
+    func submitLabel() throws -> SubmitLabel {
+        let reference = EmptyView().submitLabel(.done)
+        let keyPath = try Inspector.environmentKeyPath(SubmitLabel.self, reference)
+        return try environment(keyPath, call: "submitLabel")
+    }
+}
+
 #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
 @available(iOS 15.0, tvOS 15.0, watchOS 8.0, *)
 extension TextInputAutocapitalization {
@@ -152,6 +172,28 @@ extension TextInputAutocapitalization {
             case .characters: return .allCharacters
             }
         }
+    }
+}
+#endif
+
+// MARK: - ViewTextSelection
+
+#if !os(tvOS) && !os(watchOS)
+@available(iOS 15.0, macOS 12.0, *)
+public extension InspectableView {
+
+    /// `true` when the view allows selecting the text it displays.
+    /// `TextSelectability` set with `textSelection` modifier
+    func textSelectability() throws -> Bool {
+        let modifiers = modifiersMatching({ modifier -> Bool in
+            modifier.modifierType.hasPrefix("TextSelectabilityModifier")
+        })
+        guard let modifier = modifiers.first else {
+            throw InspectionError.modifierNotFound(
+                parent: Inspector.typeName(value: content.view),
+                modifier: "textSelection", index: 0)
+        }
+        return modifier.modifierType.contains("<EnabledTextSelectability")
     }
 }
 #endif

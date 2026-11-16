@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct MenuButton: KnownViewType {
-        public static var typePrefix: String = "MenuButton"
+        public static let typePrefix: String = "MenuButton"
     }
 }
 

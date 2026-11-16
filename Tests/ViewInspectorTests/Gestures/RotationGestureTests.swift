@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Retotation Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -16,19 +19,23 @@ final class RotationGestureTests: XCTestCase {
     var gestureTests: CommonGestureTests<RotationGesture>?
     
     override func setUpWithError() throws {
-        rotationAngle = Angle(degrees: 90)
-        rotationValue = RotationGesture.Value(angle: rotationAngle!)
+        MainActor.assumeIsolated {
+            rotationAngle = Angle(degrees: 90)
+            rotationValue = RotationGesture.Value(angle: rotationAngle!)
         
-        gestureTests = CommonGestureTests<RotationGesture>(testCase: self,
-                                                           gesture: RotationGesture(),
-                                                           value: rotationValue!,
-                                                           assert: assertRotationValue)
+            gestureTests = CommonGestureTests<RotationGesture>(testCase: self,
+                                                               gesture: RotationGesture(),
+                                                               value: rotationValue!,
+                                                               assert: assertRotationValue)
+        }
     }
     
     override func tearDownWithError() throws {
-        rotationAngle = nil
-        rotationValue = nil
-        gestureTests = nil
+        MainActor.assumeIsolated {
+            rotationAngle = nil
+            rotationValue = nil
+            gestureTests = nil
+        }
     }
 
     func testCreateRotationGestureValue() throws {
@@ -142,3 +149,6 @@ final class RotationGestureTests: XCTestCase {
         XCTAssertEqual(value, rotationAngle!)
     }
 }
+
+extension RotationGestureTests: @unchecked Sendable { }
+#endif

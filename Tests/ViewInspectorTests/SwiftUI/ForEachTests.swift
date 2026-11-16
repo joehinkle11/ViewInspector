@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers.UTType
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ForEachTests: XCTestCase {
     

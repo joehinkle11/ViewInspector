@@ -2,42 +2,44 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class OptionalViewTests: XCTestCase {
     
     func testOptionalViewWhenExists() throws {
         let view = OptionalView(flag: true)
-        let string = try view.inspect().hStack().text(0).string()
+        let string = try view.inspect().implicitAnyView().hStack().text(0).string()
         XCTAssertEqual(string, "ABC")
     }
     
     func testOptionalViewWhenIsAbsent() throws {
         let view = OptionalView(flag: false)
         XCTAssertThrows(
-            try view.inspect().hStack().text(0),
+            try view.inspect().implicitAnyView().hStack().text(0),
             "View for Optional<Text> is absent")
     }
     
     func testMixedOptionalViewWhenExists() throws {
         let view = MixedOptionalView(flag: true)
-        let string1 = try view.inspect().hStack().text(0).string()
+        let string1 = try view.inspect().implicitAnyView().hStack().text(0).string()
         XCTAssertEqual(string1, "ABC")
-        let string2 = try view.inspect().hStack().text(1).string()
+        let string2 = try view.inspect().implicitAnyView().hStack().text(1).string()
         XCTAssertEqual(string2, "XYZ")
     }
     
     func testMixedOptionalViewWhenIsAbsent() throws {
         let view = MixedOptionalView(flag: false)
         XCTAssertThrows(
-            try view.inspect().hStack().text(0),
+            try view.inspect().implicitAnyView().hStack().text(0),
             "View for Optional<Text> is absent")
-        let string = try view.inspect().hStack().text(1).string()
+        let string = try view.inspect().implicitAnyView().hStack().text(1).string()
         XCTAssertEqual(string, "XYZ")
     }
     
     func testSearch() throws {
         let view1 = AnyView(MixedOptionalView(flag: true))
         let view2 = AnyView(MixedOptionalView(flag: false))
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertEqual(try view1.inspect().find(text: "ABC").pathToRoot,
                        "anyView().view(MixedOptionalView.self).hStack().text(0)")
         XCTAssertEqual(try view1.inspect().find(text: "XYZ").pathToRoot,
@@ -45,6 +47,15 @@ final class OptionalViewTests: XCTestCase {
         XCTAssertThrows(try view2.inspect().find(text: "ABC"), "Search did not find a match")
         XCTAssertEqual(try view2.inspect().find(text: "XYZ").pathToRoot,
                        "anyView().view(MixedOptionalView.self).hStack().text(1)")
+        #else
+        XCTAssertEqual(try view1.inspect().find(text: "ABC").pathToRoot,
+                       "anyView().view(MixedOptionalView.self).anyView().hStack().text(0)")
+        XCTAssertEqual(try view1.inspect().find(text: "XYZ").pathToRoot,
+                       "anyView().view(MixedOptionalView.self).anyView().hStack().text(1)")
+        XCTAssertThrows(try view2.inspect().find(text: "ABC"), "Search did not find a match")
+        XCTAssertEqual(try view2.inspect().find(text: "XYZ").pathToRoot,
+                       "anyView().view(MixedOptionalView.self).anyView().hStack().text(1)")
+        #endif
     }
     
     func testRetainsModifiers() throws {

@@ -4,6 +4,7 @@ import SwiftUI
 
 // MARK: - ViewGraphicalEffectsTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewGraphicalEffectsTests: XCTestCase {
     
@@ -174,10 +175,11 @@ final class ViewGraphicalEffectsTests: XCTestCase {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-extension LinearGradient: BinaryEquatable { }
+extension LinearGradient: @retroactive BinaryEquatable { }
 
 // MARK: - ViewMaskingTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewMaskingTests: XCTestCase {
     
@@ -217,6 +219,20 @@ final class ViewMaskingTests: XCTestCase {
         XCTAssertEqual(sut, 5)
     }
     
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func testCornerRadii() throws {
+        let sut = EmptyView().clipShape(UnevenRoundedRectangle())
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+    
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    func testCornerRadiiInspection() throws {
+        let cornerRadii: RectangleCornerRadii = .init(topLeading: 1, bottomLeading: 2, bottomTrailing: 3, topTrailing: 4)
+        let sut = try EmptyView().clipShape(UnevenRoundedRectangle(cornerRadii: cornerRadii))
+            .inspect().emptyView().cornerRadii()
+        XCTAssertEqual(sut, cornerRadii)
+    }
+    
     func testMask() throws {
         let sut = EmptyView().mask(Text(""))
         XCTAssertNoThrow(try sut.inspect().emptyView())
@@ -237,6 +253,7 @@ final class ViewMaskingTests: XCTestCase {
 
 // MARK: - ViewHidingTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewHidingTests: XCTestCase {
     
@@ -264,5 +281,46 @@ final class ViewHidingTests: XCTestCase {
         XCTAssertTrue(try sut1.inspect().emptyView().isDisabled())
         XCTAssertFalse(try sut2.inspect().emptyView().isDisabled())
         XCTAssertFalse(try sut3.inspect().emptyView().isDisabled())
+    }
+}
+
+// MARK: - ViewCompositingTests
+
+@MainActor
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+final class ViewCompositingTests: XCTestCase {
+
+    func testCompositingGroup() throws {
+        let sut = EmptyView().compositingGroup()
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testCompositingGroupInspection() throws {
+        let sut = try EmptyView().compositingGroup().inspect().emptyView()
+        XCTAssertNoThrow(try sut.compositingGroup())
+    }
+
+    func testCompositingGroupInspectionError() throws {
+        let sut = try EmptyView().inspect()
+        XCTAssertThrows(try sut.compositingGroup(),
+                        "EmptyView does not have 'compositingGroup' modifier")
+    }
+
+    func testDrawingGroup() throws {
+        let sut = EmptyView().drawingGroup(opaque: true, colorMode: .extendedLinear)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testDrawingGroupInspection() throws {
+        XCTAssertEqual(try EmptyView().drawingGroup(opaque: true, colorMode: .extendedLinear)
+            .inspect().emptyView().drawingGroup(), .extendedLinear)
+        XCTAssertEqual(try EmptyView().drawingGroup()
+            .inspect().emptyView().drawingGroup(), .nonLinear)
+    }
+
+    func testDrawingGroupInspectionError() throws {
+        let sut = try EmptyView().inspect()
+        XCTAssertThrows(try sut.drawingGroup(),
+                        "EmptyView does not have 'drawingGroup' modifier")
     }
 }

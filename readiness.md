@@ -27,12 +27,13 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| ButtonStyleConfiguration.Label | |
 |:technologist:| CameraView | |
 |:white_check_mark:| Canvas | `symbols view`, `colorMode: ColorRenderingMode`, `opaque: Bool`, `rendersAsynchronously: Bool` |
-|:technologist:| Chart | |
+|:white_check_mark:| Chart | opaque view: the contents are `ChartContent`, not `View`, so there is nothing to inspect inside |
 |:white_check_mark:| Color | `value: Color`, `rgba: (Float, Float, Float, Float)`, `name: String` |
 |:white_check_mark:| ColorPicker | `label view`, `select(color: Color)` |
 |:white_check_mark:| ControlGroup | |
 |:white_check_mark:| ConditionalContent | `contained view` |
 |:white_check_mark:| ConfirmationDialog | `title view`, `message view`, `actions view`, `titleVisibility: Visibility`, `dismiss()` |
+|:white_check_mark:| ContentUnavailableView | `label view`, `description view`, `actions view` |
 |:white_check_mark:| Custom View | `actualView: CustomView`, `viewBuilder container` |
 |:white_check_mark:| Custom ViewModifier | |
 |:white_check_mark:| Custom ViewModifier.Content | |
@@ -48,19 +49,20 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| EquatableView | `contained view` |
 |:technologist:| FamilyActivityPicker | |
 |:white_check_mark:| Font (*) | `size: CGFloat`, `isFixedSize: Bool`, `name: String`, `weight: Font.Weight`, `design: Font.Design`, `style: Font.TextStyle` |
-|:white_check_mark:| ForEach | `contained view`, `callOnDelete`, `callOnMove`, `callOnInsert` |
+|:white_check_mark:| ForEach | `contained view`, `callOnDelete`, `callOnMove`, `callOnInsert`, `ForEach(subviews:)`, `ForEach(sections:)` |
 |:white_check_mark:| Form | `contained view` |
 |:technologist:| Gauge | |
 |:white_check_mark:| FullScreenCover | `dismiss()` |
 |:white_check_mark:| GeometryReader | `contained view` |
+|:white_check_mark:| GlassEffectContainer | `contained view`, `spacing: CGFloat?` |
 |:white_check_mark:| Grid | `alignment: Alignment`, `horizontalSpacing: CGFloat?`, `verticalSpacing: CGFloat?` |
 |:white_check_mark:| GridRow | `alignment: VerticalAlignment?` |
-|:white_check_mark:| Group | `contained view` |
+|:white_check_mark:| Group | `contained view`, `Group(subviews:)`, `Group(sections:)` |
 |:white_check_mark:| GroupBox | `contained view`, `label view` |
 |:white_check_mark:| HSplitView | `contained view` |
 |:white_check_mark:| HStack | `contained view`, `alignment: VerticalAlignment`, `spacing: CGFloat?` |
 |:white_check_mark:| Image | `label view`, `actualImage: Image` |
-|:white_check_mark:| Image (*) | `rootImage: Image`, `name: String?`, `(ui,ns,cg)Image: (UI,NS,CG)Image`, `orientation: Image.Orientation`, `scale: CGFloat` |
+|:white_check_mark:| Image (*) | `rootImage: Image`, `name: String?`, `(ui,ns,cg)Image: (UI,NS,CG)Image`, `orientation: Image.Orientation`, `scale: CGFloat`, `renderingMode: Image.TemplateRenderingMode`, `resizableParameters: (capInsets: EdgeInsets, resizingMode: Image.ResizingMode)`|
 |:white_check_mark:| Label | `title view`, `icon view` |
 |:white_check_mark:| LabeledContent | `contained view`, `label view` |
 |:white_check_mark:| LabelStyleConfiguration.Icon | |
@@ -83,7 +85,7 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| ModifiedContent | `contained view` |
 |:white_check_mark:| MultiDatePicker | `labelView`, `minimumDate: Date?`, `maximumDate: Date?`, `select(dateComponents: Set<DateComponents>)` |
 |:white_check_mark:| NavigationDestination | `contained view` |
-|:white_check_mark:| NavigationLink | `contained view`, `label view`, `isActive: Bool`, `activate()`, `deactivate()` |
+|:white_check_mark:| NavigationLink | `contained view`, `label view`, `isActive: Bool`, `activate()`, `deactivate()`, `value` |
 |:white_check_mark:| NavigationSplitView | `contained view`, `sidebar view`, `detail view` |
 |:white_check_mark:| NavigationStack | `contained view` |
 |:white_check_mark:| NavigationView | `contained view` |
@@ -101,6 +103,7 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| ProgressViewStyleConfiguration.Label | |
 |:white_check_mark:| RadialGradient | `gradient: Gradient`, `center: UnitPoint`, `startRadius: CGFloat`, `endRadius: CGFloat` |
 |:technologist:| RenameButton | |
+|:white_check_mark:| SafeAreaBar | `edge: SafeAreaBarEdge`, `alignment: SafeAreaBarAlignment`, `spacing: CGFloat?` |
 |:white_check_mark:| SafeAreaInset | `regions: SafeAreaRegions`, `spacing: CGFloat?`, `edge: Edge` |
 |:technologist:| SceneView | |
 |:white_check_mark:| ScrollView | `contained view`, `axes: Axis.Set`, `showsIndicators: Bool` |
@@ -119,11 +122,11 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:technologist:| SpriteView | |
 |:white_check_mark:| Stepper | `label view`, `increment()`, `decrement()`, `callOnEditingChanged()` |
 |:white_check_mark:| SubscriptionView | |
+|:white_check_mark:| Tab | `contained view`, `labelView()`, `role()` |
 |:technologist:| Table | |
 |:white_check_mark:| TabView | `contained view` |
-|:technologist:| Table | |
 |:white_check_mark:| Text | `string(locale: Locale) -> String`, `attributes: TextAttributes`, `attributedString: AttributedString`, `images: [Image]` |
-|:white_check_mark:| TextEditor | `input: String`, `setInput(_: String)` |
+|:white_check_mark:| TextEditor | `input: String`, `setInput(_: String)`, `attributedInput: AttributedString`, `setInput(_: AttributedString)`, `selection: TextSelection?`, `setSelection(_: TextSelection?)`, `attributedSelection: AttributedTextSelection?`, `setSelection(_: AttributedTextSelection)` |
 |:white_check_mark:| TextField | `label view`, `prompt`, `callOnEditingChanged()`, `callOnCommit()`, `input: String`, `setInput(_: String)` |
 |:technologist:| TextFieldLink | |
 |:white_check_mark:| TimelineView | `contentView(Context)` |
@@ -155,7 +158,6 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:technologist:| `@FocusedObject` |
 |:technologist:| `@FocusedValue` |
 |:technologist:| `@FocusState` |
-|:technologist:| `@FocusedValue` |
 |:white_check_mark:| `@GestureState` |
 |:technologist:| `@Namespace` |
 |:technologist:| `@NSApplicationDelegateAdaptor` |
@@ -219,8 +221,11 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func offset(...) -> some View` |
 |:white_check_mark:| `func edgesIgnoringSafeArea(Edge.Set) -> some View` |
 |:white_check_mark:| `func coordinateSpace<T>(name: T) -> some View` |
-|:technologist:| `func ignoresSafeArea(SafeAreaRegions, edges: Edge.Set) -> some View` |
-|:technologist:| `func safeAreaInset(edge: VerticalEdge, alignment: HorizontalAlignment, spacing: CGFloat?, content: () -> V) -> some View` |
+|:white_check_mark:| `func ignoresSafeArea(SafeAreaRegions, edges: Edge.Set) -> some View` |
+|:white_check_mark:| `func safeAreaInset(edge: VerticalEdge, alignment: HorizontalAlignment, spacing: CGFloat?, content: () -> V) -> some View` |
+|:white_check_mark:| `func safeAreaInset(edge: HorizontalEdge, alignment: VerticalAlignment, spacing: CGFloat?, content: () -> V) -> some View` |
+|:white_check_mark:| `func safeAreaBar(edge: VerticalEdge, alignment: HorizontalAlignment, spacing: CGFloat?, content: () -> V) -> some View` |
+|:white_check_mark:| `func safeAreaBar(edge: HorizontalEdge, alignment: VerticalAlignment, spacing: CGFloat?, content: () -> V) -> some View` |
 |:technologist:| `func alignmentGuide(...) -> some View` |
 |:white_check_mark:| `func padding(...) -> some View` |
 |:technologist:| `func scenePadding(_ edges: Edge.Set) -> some View` |
@@ -283,14 +288,18 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func hueRotation(Angle) -> some View` |
 |:white_check_mark:| `func luminanceToAlpha() -> some View` |
 |:white_check_mark:| `func shadow(color: Color, radius: CGFloat, x: CGFloat, y: CGFloat) -> some View` |
+|:white_check_mark:| `func glassEffect(_ glass: Glass, in shape: some Shape) -> some View` | `glassEffect() -> ViewType.GlassEffect` with `.tintColor() -> Color?`, `.shape<S: Shape>(S.Type) -> S`, `.isInteractive() -> Bool` |
+|:white_check_mark:| `func glassEffectTransition(_ transition: GlassEffectTransition) -> some View` | `glassEffectTransition() -> GlassEffectTransition` |
+|:white_check_mark:| `func glassEffectID(_ id: some Hashable, in namespace: Namespace.ID) -> some View` | `glassEffectID() -> (id: AnyHashable?, namespace: Namespace.ID)` |
+|:white_check_mark:| `func glassEffectUnion(id: some Hashable, namespace: Namespace.ID) -> some View` | `glassEffectUnion() -> (id: AnyHashable?, namespace: Namespace.ID?)` |
 
 ### Compositing Views
 
 | Status | Modifier |
 |:---:|---|
 |:white_check_mark:| `func blendMode(BlendMode) -> some View` |
-|:technologist:| `func compositingGroup() -> some View` |
-|:technologist:| `func drawingGroup(opaque: Bool, colorMode: ColorRenderingMode) -> some View` |
+|:white_check_mark:| `func compositingGroup() -> some View` |
+|:white_check_mark:| `func drawingGroup(opaque: Bool, colorMode: ColorRenderingMode) -> some View` |
 
 ### Adding Animations to a View
 
@@ -333,16 +342,18 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func onDisappear(perform: (() -> Void)?) -> some View` |
 |:white_check_mark:| `func onCutCommand(perform: (() -> [NSItemProvider])?) -> some View` |
 |:white_check_mark:| `func onCopyCommand(perform: (() -> [NSItemProvider])?) -> some View` |
-|:technologist:| `func onPasteCommand(...) -> some View` |
+|:white_check_mark:| `func onPasteCommand(...) -> some View` |
 |:white_check_mark:| `func onDeleteCommand(perform: (() -> Void)?) -> some View` |
 |:white_check_mark:| `func onMoveCommand(perform: ((MoveCommandDirection) -> Void)?) -> some View` |
 |:white_check_mark:| `func onExitCommand(perform: (() -> Void)?) -> some View` |
 |:technologist:| `func onPlayPauseCommand(perform: (() -> Void)?) -> some View` |
-|:technologist:| `func onCommand(Selector, perform: (() -> Void)?) -> some View` |
+|:white_check_mark:| `func onCommand(Selector, perform: (() -> Void)?) -> some View` |
 |:technologist:| `func onDrag(() -> NSItemProvider) -> some View` |
 |:technologist:| `func onDrop(of: [UTType], ...) -> some View` |
 |:technologist:| `func deleteDisabled(Bool) -> some View` |
 |:technologist:| `func moveDisabled(Bool) -> some View` |
+|:white_check_mark:| `func onScrollVisibilityChange(threshold: Double, (Bool) -> Void) -> some View` |
+|:technologist:| `func onScrollTargetVisibilityChange<ID>(idType: ID.Type, threshold: Double, ([ID]) -> Void) -> some View` |
 
 ### Handling Publisher Events
 
@@ -350,7 +361,10 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:---:|---|
 |:white_check_mark:| `func onReceive<P>(P, perform: (P.Output) -> Void) -> some View` |
 |:white_check_mark:| `func onChange<V>(of: V, perform: (V) -> Void) -> some View` |
-|:technologist:| `func task(...) -> some View` |
+|:white_check_mark:| `func onChange<V>(of: V, initial: Bool, _ action: () -> Void) -> some View` |
+|:white_check_mark:| `func onChange<V>(of: V, initial: Bool, _ action: (V, V) -> Void) -> some View` |
+|:white_check_mark:| `func task(priority: TaskPriority, () async -> Void) -> some View` |
+|:white_check_mark:| `func task<T>(id: T, priority: TaskPriority, () async -> Void) -> some View` |
 
 ### Handling View Hover and Focus
 
@@ -409,7 +423,8 @@ This document reflects the current status of the [ViewInspector](https://github.
 | Status | Modifier |
 |:---:|---|
 |:white_check_mark:| `func environmentObject<B>(B) -> some View` |
-|:technologist:| `func environment<V>(WritableKeyPath<EnvironmentValues, V>, V) -> some View` |
+|:white_check_mark:| `func environment<T>(T?) -> some View where T: AnyObject, T: Observable` |
+|:white_check_mark:| `func environment<V>(WritableKeyPath<EnvironmentValues, V>, V) -> some View` |
 |:technologist:| `func transformEnvironment<V>(WritableKeyPath<EnvironmentValues, V>, transform: (inout V) -> Void) -> some View` |
 
 ### Setting View Colors
@@ -455,16 +470,16 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func allowsTightening(Bool) -> some View` |
 |:white_check_mark:| `func textContentType(UITextContentType?) -> some View` |
 |:technologist:| `func textContentType(UITextContentType?) -> some View` |
-|:technologist:| `func textCase(Text.Case?) -> some View` |
+|:white_check_mark:| `func textCase(Text.Case?) -> some View` |
 |:white_check_mark:| `func flipsForRightToLeftLayoutDirection(Bool) -> some View` |
 |:white_check_mark:| `func autocapitalization(UITextAutocapitalizationType) -> some View` |
 |:white_check_mark:| `func disableAutocorrection(Bool?) -> some View` |
 |:technologist:| `func monospacedDigit() -> some View` |
 |:technologist:| `func textInputAutocapitalization(_ autocapitalization: TextInputAutocapitalization?) -> some View` |
-|:technologist:| `func onSubmit(of triggers: SubmitTriggers, _ action: @escaping (() -> Void)) -> some View` |
-|:technologist:| `func submitLabel(_ submitLabel: SubmitLabel) -> some View` |
+|:white_check_mark:| `func onSubmit(of triggers: SubmitTriggers, _ action: @escaping (() -> Void)) -> some View` |
+|:white_check_mark:| `func submitLabel(_ submitLabel: SubmitLabel) -> some View` |
 |:technologist:| `func submitScope(_ isBlocking: Bool) -> some View` |
-|:technologist:| `func textSelection<S>(_ selectability: S) -> some View` |
+|:white_check_mark:| `func textSelection<S>(_ selectability: S) -> some View` |
 
 ### Redacting Content
 
@@ -504,7 +519,6 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func toggleStyle<S>(S) -> some View` |
 |:technologist:| `func controlGroupStyle<S>(S) -> some View` |
 |:technologist:| `func gaugeStyle<S>(S) -> some View` |
-|:technologist:| `func signInWithAppleButtonStyle(S) -> some View` |
 |:technologist:| `func buttonBorderShape(_ shape: ButtonBorderShape) -> some View` |
 
 ### Configuring a List View
@@ -521,7 +535,7 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:technologist:| `func listSectionSeparator(_ visibility: Visibility, edges: VerticalEdge.Set) -> some View` |
 |:technologist:| `func listSectionSeparatorTint(_ color: Color?, edges: VerticalEdge.Set) -> some View` |
 |:technologist:| `func headerProminence(_ prominence: Prominence) -> some View` |
-|:technologist:| `func refreshable(action: @Sendable () async -> Void) -> some View` |
+|:white_check_mark:| `func refreshable(action: @Sendable () async -> Void) -> some View` |
 |:technologist:| `func searchable(text: Binding<String>, placement: SearchFieldPlacement, prompt: LocalizedStringKey) -> some View` |
 |:technologist:| `func searchCompletion(_ completion: String) -> some View` |
 
@@ -532,6 +546,7 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func navigationBarItems(...) -> some View` |
 |:technologist:| `func navigationBarTitle(...) -> some View` |
 |:technologist:| `func navigationTitle(...) -> some View` |
+|:white_check_mark:| `func navigationTitle(_ title: Binding<String>) -> some View` |
 |:technologist:| `func navigationSubtitle(...) -> some View` |
 |:technologist:| `func navigationBarTitleDisplayMode(NavigationBarItem.TitleDisplayMode) -> some View` |
 |:white_check_mark:| `func navigationBarHidden(Bool) -> some View` |
@@ -577,6 +592,7 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:white_check_mark:| `func accessibilityHint(...) -> some View` |
 |:white_check_mark:| `func accessibilityActivationPoint(...) -> some View` |
 |:white_check_mark:| `func accessibilityAction(...) -> some View` |
+|:white_check_mark:| `func accessibilityActions(...) -> some View` |
 |:technologist:| `func accessibilityAction<Label>(action: () -> Void, label: () -> Label) -> some View` |
 |:technologist:| `func accessibilityAction<S>(named name: S, () -> Void) -> some View` |
 |:white_check_mark:| `func accessibilityAdjustableAction((AccessibilityAdjustmentDirection) -> Void) -> some View` |
@@ -595,8 +611,8 @@ This document reflects the current status of the [ViewInspector](https://github.
 |:technologist:| `func accessibilityElement(children: AccessibilityChildBehavior) -> some View` |
 |:technologist:| `func accessibilityChildren<V>(children: () -> V) -> some View` |
 |:technologist:| `func accessibilityInputLabels(...) -> some View` |
-|:technologist:| `func accessibilityAddTraits(AccessibilityTraits) -> some View` |
-|:technologist:| `func accessibilityRemoveTraits(AccessibilityTraits) -> some View` |
+|:white_check_mark:| `func accessibilityAddTraits(AccessibilityTraits) -> some View` |
+|:white_check_mark:| `func accessibilityRemoveTraits(AccessibilityTraits) -> some View` |
 |:technologist:| `func accessibilityLinkedGroup<ID>(id: ID, in: Namespace.ID) -> some View` |
 |:technologist:| `func accessibilityShowsLargeContentViewer(...) -> some View` |
 |:technologist:| `func speechAdjustedPitch(_ value: Double) -> some View` |

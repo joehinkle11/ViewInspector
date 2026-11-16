@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class LazyHGridTests: XCTestCase {
     
@@ -79,7 +80,7 @@ final class LazyHGridTests: XCTestCase {
         else { throw XCTSkip() }
         let view = LazyHGrid(rows: [GridItem(.fixed(10))]) { Text("") }
         let sut = try view.inspect().lazyHGrid().rows()
-        XCTAssertEqual(sut, [GridItem(.fixed(10))])
+        XCTAssertTrue(sut.isEqual([GridItem(.fixed(10))]))
     }
 }
 
@@ -93,9 +94,9 @@ final class GridItemTests: XCTestCase {
             GridItem(.adaptive(minimum: 10, maximum: 20)),
             GridItem(.flexible(minimum: 10, maximum: 20))
         ]
-        XCTAssertEqual(items[0], items[0])
-        XCTAssertEqual(items[1], items[1])
-        XCTAssertEqual(items[2], items[2])
-        XCTAssertNotEqual(items[1], items[2])
+        XCTAssertTrue(items[0].isEqual(items[0]))
+        XCTAssertTrue(items[1].isEqual(items[1]))
+        XCTAssertTrue(items[2].isEqual(items[2]))
+        XCTAssertFalse(items[1].isEqual(items[2]))
     }
 }

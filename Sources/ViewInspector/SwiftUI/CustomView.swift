@@ -55,14 +55,14 @@ internal extension Content {
     
     func extractCustomView() throws -> Content {
         let contentExtractor = try ContentExtractor(source: view)
-        let view = try contentExtractor.extractContent(environmentObjects: medium.environmentObjects)
+        let view = try contentExtractor.extractContent(medium: medium)
         let medium = self.medium.resettingViewModifiers()
         return try Inspector.unwrap(view: view, medium: medium)
     }
     
     func extractCustomViewGroup() throws -> LazyGroup<Content> {
         let contentExtractor = try ContentExtractor(source: view)
-        let view = try contentExtractor.extractContent(environmentObjects: medium.environmentObjects)
+        let view = try contentExtractor.extractContent(medium: medium)
         return try Inspector.viewsInContainer(view: view, medium: medium)
     }
 }
@@ -123,7 +123,7 @@ public extension InspectableView where View: CustomViewType {
         content.medium.environmentObjects.forEach {
             view = EnvironmentInjection.inject(environmentObject: $0, into: view)
         }
-        return view
+        return EnvironmentInjection.inject(environmentValues: content.medium.environmentValues, into: view)
     }
 }
 
@@ -131,29 +131,37 @@ public extension InspectableView where View: CustomViewType {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension NSViewRepresentable {
     func nsView() throws -> NSViewType {
-        return try ViewHosting.lookup(Self.self)
+        return try MainActor.assumeIsolated {
+            try ViewHosting.lookup(Self.self)
+        }
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension NSViewControllerRepresentable {
     func viewController() throws -> NSViewControllerType {
-        return try ViewHosting.lookup(Self.self)
+        return try MainActor.assumeIsolated {
+            try ViewHosting.lookup(Self.self)
+        }
     }
 }
 
-#elseif os(iOS) || os(tvOS)
+#elseif os(iOS) || os(tvOS) || os(visionOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension UIViewRepresentable {
     func uiView() throws -> UIViewType {
-        return try ViewHosting.lookup(Self.self)
+        return try MainActor.assumeIsolated {
+            try ViewHosting.lookup(Self.self)
+        }
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension UIViewControllerRepresentable {
     func viewController() throws -> UIViewControllerType {
-        return try ViewHosting.lookup(Self.self)
+        return try MainActor.assumeIsolated {
+            try ViewHosting.lookup(Self.self)
+        }
     }
 }
 #elseif os(watchOS)
@@ -161,7 +169,9 @@ public extension UIViewControllerRepresentable {
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
 public extension WKInterfaceObjectRepresentable {
     func interfaceObject() throws -> WKInterfaceObjectType {
-        return try ViewHosting.lookup(Self.self)
+        return try MainActor.assumeIsolated {
+            try ViewHosting.lookup(Self.self)
+        }
     }
 }
 #endif

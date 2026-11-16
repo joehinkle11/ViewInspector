@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct TouchBar: KnownViewType {
-        public static var typePrefix: String = "TouchBar"
+        public static let typePrefix: String = "TouchBar"
     }
 }
 

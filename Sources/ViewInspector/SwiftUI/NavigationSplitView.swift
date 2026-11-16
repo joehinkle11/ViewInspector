@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct NavigationSplitView: KnownViewType {
-        public static var typePrefix: String = "NavigationSplitView"
+        public static let typePrefix: String = "NavigationSplitView"
     }
 }
 

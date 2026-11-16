@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ShapeTests: XCTestCase {
     
@@ -21,7 +22,7 @@ final class ShapeTests: XCTestCase {
             try HStack { EmptyView() }.inspect().hStack().shape(0),
             "Type mismatch: EmptyView is not InspectableShape")
     }
-    
+
     func testShapeModifiers() throws {
         XCTAssertNoThrow(try Ellipse().inset(by: 5).inspect().shape()) // _Inset
         XCTAssertNoThrow(try Ellipse().size(width: 10, height: 20).inspect().shape()) // _SizedShape
@@ -29,7 +30,7 @@ final class ShapeTests: XCTestCase {
         XCTAssertNoThrow(try Ellipse().trim(from: 5, to: 10).inspect().shape()) // _TrimmedShape
         XCTAssertNoThrow(try Ellipse().fill().inspect().shape()) // _ShapeView
     }
-    
+
     func testPath() throws {
         let shape = Ellipse().inset(by: 50)
             .offset(x: 10, y: 20).rotation(.degrees(30))
@@ -44,13 +45,13 @@ final class ShapeTests: XCTestCase {
         let sut = (shape.fill() as? InspectableShape)?.path(in: rect)
         XCTAssertEqual(sut, shape.path(in: rect))
     }
-    
+
     func testInset() throws {
         let shape = Ellipse().inset(by: 10)
         let sut = try shape.inspect().shape().inset()
         XCTAssertEqual(sut, 10)
     }
-    
+
     func testInsetBlockingInspection() throws {
         let shape1 = Ellipse().inset(by: 5)
         let shape2 = Ellipse().offset().inset(by: 5)
@@ -126,11 +127,24 @@ final class ShapeTests: XCTestCase {
         XCTAssertEqual(try sut.endPoint(), UnitPoint.bottomLeading)
     }
     
+    func testFillColor() throws {
+        let view = Ellipse().fill(Color.blue)
+        let fillColor = try view.inspect().shape().fillShapeStyle(Color.self)
+        XCTAssertEqual(fillColor, Color.blue)
+    }
+
     func testFillStyle() throws {
         let fillStyle = FillStyle(eoFill: true, antialiased: false)
         let view = Ellipse().fill(style: fillStyle)
         let sut = try view.inspect().shape().fillStyle()
         XCTAssertEqual(sut, fillStyle)
+    }
+    
+    func testStrokeContent() throws {
+        let content = Color.blue
+        let view = Ellipse().stroke(content, lineWidth: 1)
+        let sut = try view.inspect().shape().fillShapeStyle(Color.self)
+        XCTAssertEqual(sut, content)
     }
     
     func testMissingAttribute() throws {
@@ -139,7 +153,7 @@ final class ShapeTests: XCTestCase {
             try sut.inspect().shape().size(),
             "Ellipse does not have 'size' attribute")
     }
-    
+
     func testMultipleModifiers() throws {
         let angle = Angle(degrees: 20)
         let offset = CGSize(width: 10, height: 30)

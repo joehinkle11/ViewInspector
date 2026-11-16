@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class TextTests: XCTestCase {
     
@@ -237,8 +238,8 @@ final class TextTests: XCTestCase {
     func testFormatStyle() throws {
         guard #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
-        let sut = Text("Test \(1234, format: .number) and \(0.5678, format: .percent)")
-        XCTAssertEqual(try sut.inspect().text().string(), "Test 1,234 and 56.78%")
+        let sut = Text("Test \(123, format: .number) and \(0.56, format: .percent)")
+        XCTAssertEqual(try sut.inspect().text().string(), "Test 123 and 56%")
     }
 
     func testFormatStyleWithLocale() throws {
@@ -247,6 +248,63 @@ final class TextTests: XCTestCase {
         let sut = Text("Test \(1234, format: .number) and \(0.5678, format: .percent)")
         XCTAssertEqual(try sut.inspect().text().string(locale: .init(identifier: "de_DE")),
                        "Test 1.234 and 56,78\u{a0}%")
+        XCTAssertEqual(try sut.inspect().text().string(locale: .init(identifier: "en_US")),
+                       "Test 1,234 and 56.78%")
+    }
+
+    func testCurrencyFormatStyle() throws {
+        guard #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = Text(5000, format: .currency(code: "USD").scale(100).locale(Locale(identifier: "en")))
+        XCTAssertEqual(try sut.inspect().text().string(), "$500,000.00")
+    }
+    
+    // MARK: - LocalizedStringResource
+    
+    func testLocalizedStringResourceStringNoParams() throws {
+        guard #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+        else { throw XCTSkip() }
+        
+        let resource = LocalizedStringResource("Test")
+        let sut = Text(resource)
+        let value = try sut.inspect().text().string()
+        XCTAssertEqual(value, "Test")
+    }
+    
+    func testLocalizedStringResourceStringWithLocaleNoParams() throws {
+        guard #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+        else { throw XCTSkip() }
+        
+        let bundle = try Bundle.testResources()
+        let resource = LocalizedStringResource("Test", table: "Test", bundle: .atURL(bundle.bundleURL))
+        let sut = Text(resource)
+        let text = try sut.inspect().text()
+        let value1 = try text.string(locale: Locale(identifier: "en"))
+        XCTAssertEqual(value1, "Test_en")
+        let value2 = try text.string(locale: Locale(identifier: "en_AU"))
+        XCTAssertEqual(value2, "Test_en_au")
+        let value3 = try text.string(locale: Locale(identifier: "ru"))
+        XCTAssertEqual(value3, "Тест_ru")
+    }
+    
+    func testLocalizedStringResourceWithOneParam() throws {
+        guard #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+        else { throw XCTSkip() }
+        
+        let resource = LocalizedStringResource("Test \(12)")
+        let sut = Text(resource)
+        let value = try sut.inspect().text().string()
+        XCTAssertEqual(value, "Test 12")
+    }
+    
+    func testLocalizedStringResourceWithMultipleParams() throws {
+        guard #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+        else { throw XCTSkip() }
+        
+        let resource = LocalizedStringResource("Test \(12) \(5.7, specifier: "%.1f") \("abc")")
+        let sut = Text(resource)
+        let value = try sut.inspect().text().string()
+        XCTAssertEqual(value, "Test 12 5.7 abc")
     }
 }
 
@@ -269,7 +327,7 @@ extension Bundle {
         return bundle
     }
     
-    private static var testResources: Bundle = {
+    private static let testResources: Bundle = {
         let bundleName = "ViewInspector_ViewInspectorTests"
         let bundle = Bundle(for: TextTests.self)
         if let resourcePath = bundle.resourceURL?

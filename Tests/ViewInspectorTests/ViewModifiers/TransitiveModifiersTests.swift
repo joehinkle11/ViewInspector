@@ -2,26 +2,38 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 9.0, *)
 final class TransitiveModifiersTests: XCTestCase {
-    
+
     func testHiddenTransitivity() throws {
         let sut = try HittenTestView().inspect()
         XCTAssertFalse(try sut.find(text: "abc").isHidden())
         XCTAssertTrue(try sut.find(text: "123").isHidden())
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertThrows(try sut.find(button: "123").tap(),
             "Button is unresponsive: view(HittenTestView.self).vStack().hStack(1) is hidden")
+        #else
+        XCTAssertThrows(try sut.find(button: "123").tap(),
+            "Button is unresponsive: view(HittenTestView.self).anyView().vStack().hStack(1) is hidden")
+        #endif
     }
-    
+
     func testDisabledStateInheritance() throws {
         let sut = try TestDisabledView().inspect()
         XCTAssertFalse(try sut.find(button: "1").isDisabled())
         XCTAssertFalse(try sut.find(button: "2").isDisabled())
         XCTAssertTrue(try sut.find(button: "3").isDisabled())
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertThrows(try sut.find(button: "3").tap(),
             "Button is unresponsive: view(TestDisabledView.self).vStack().vStack(1).vStack(1) is disabled")
+        #else
+        XCTAssertThrows(try sut.find(button: "3").tap(),
+            "Button is unresponsive: view(TestDisabledView.self).anyView().vStack().vStack(1).vStack(1) is disabled")
+        #endif
     }
     
+    #if !os(tvOS)
     @available(tvOS, unavailable)
     func testFlipsRightToLeftInheritance() throws {
         let sut = try FlipsRightToLeftTestView().inspect()
@@ -33,7 +45,8 @@ final class TransitiveModifiersTests: XCTestCase {
         }
         XCTAssertTrue(try sut.find(text: "2").flipsForRightToLeftLayoutDirection())
     }
-    
+    #endif
+
     @available(macOS 11.0, *)
     func testColorSchemeInheritance() throws {
         let sut = try ColorSchemeTestView().inspect()
@@ -50,20 +63,29 @@ final class TransitiveModifiersTests: XCTestCase {
         XCTAssertEqual(try text3.colorScheme(), .dark)
         XCTAssertEqual(try text4.colorScheme(), .light)
     }
-    
+
     func testAllowsHitTestingInheritance() throws {
         guard #available(macOS 11.0, *) else { throw XCTSkip() }
         let sut = try AllowsHitTestingTestView().inspect()
         XCTAssertTrue(try sut.find(button: "1").allowsHitTesting())
         XCTAssertTrue(try sut.find(button: "2").allowsHitTesting())
         XCTAssertFalse(try sut.find(button: "3").allowsHitTesting())
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertThrows(try sut.find(button: "3").tap(),
             """
             Button is unresponsive: view(AllowsHitTestingTestView.self).vStack()\
             .vStack(1).vStack(1) has allowsHitTesting set to false
             """)
+        #else
+        XCTAssertThrows(try sut.find(button: "3").tap(),
+            """
+            Button is unresponsive: view(AllowsHitTestingTestView.self).anyView().vStack()\
+            .vStack(1).vStack(1) has allowsHitTesting set to false
+            """)
+        #endif
     }
     
+    #if !os(watchOS) && !os(tvOS)
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     func testLabelsHiddenInheritance() throws {
@@ -75,6 +97,7 @@ final class TransitiveModifiersTests: XCTestCase {
         XCTAssertTrue(text2.labelsHidden())
         XCTAssertTrue(text2.isHidden())
     }
+    #endif
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)

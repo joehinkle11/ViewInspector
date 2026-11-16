@@ -7,11 +7,13 @@
 - [Views using **@ObservedObject**](#views-using-observedobject)
 - [Views using **@State**, **@Environment** or **@EnvironmentObject**](#views-using-state-environment-or-environmentobject)
 - [Custom **ViewModifier**](#custom-viewmodifier)
+- [Inspecting a mix of UIKit and SwiftUI](#inspecting-a-mix-of-uikit-and-swiftui)
+- [Async inspection](#async-inspection)
 - [Advanced topics](#advanced-topics)
 
 ## The Basics
 
-Cosidering you have a view:
+Consider you have a view:
 
 ```swift
 struct ContentView: View {
@@ -31,7 +33,7 @@ final class ContentViewTests: XCTestCase {
 
     func testStringValue() throws { // 2.
         let sut = ContentView()
-        let value = try sut.inspect().text().string() // 3.
+        let value = try sut.inspect().implicitAnyView().text().string() // 3.
         XCTAssertEqual(value, "Hello, world!")
     }
 }
@@ -43,6 +45,8 @@ So, you need to do the following:
 3. Start the inspection with `.inspect()` function
 
 After the `.inspect()` call you need to repeat the structure of the `body` by chaining corresponding functions named after the SwiftUI views.
+
+Note that Swift compiler v6, shipped as part of Xcode 16, began to insert implicit `AnyView` views in the view hierarchy. Although the logical structure of `CustomView` in the example doesn't have `AnyView`, after compilation it is there, so we need to unwrap it with `.anyView()`, or, if we want to express this isn't our `AnyView`, with `.implicitAnyView()` call.
 
 ```swift
 struct MyView: View {
@@ -65,7 +69,7 @@ In this case you can obtain access to the `Text("Ok")` with the following chain:
 
 ```swift
 let view = MyView()
-view.inspect().hStack().anyView(1).view(OtherView.self).text()
+view.inspect().implicitAnyView().hStack().anyView(1).view(OtherView.self).text()
 ```
 
 Note that after `.hStack()` you're required to provide the index of the view you're retrieving: `.anyView(1)`. For obtaining `Text("Hi")` you'd call `.text(0)`.
@@ -74,7 +78,7 @@ You can save the intermediate result in a variable and reuse it for further insp
 
 ```swift
 let view = MyView()
-let hStack = try view.inspect().hStack()
+let hStack = try view.inspect().implicitAnyView().hStack()
 let hiText = try hStack.text(0)
 let okText = try hStack.anyView(1).view(OtherView.self).text()
 ```
@@ -88,7 +92,7 @@ Alternatively to writing the full path to the target view you can use one of the
 `find` is fully compatible with the inspection call chain and can be triggered at any step:
 
 ```swift
-try sut.inspect().anyView().find(ViewType.HStack.self).text(1)
+try sut.inspect().implicitAnyView().anyView().find(ViewType.HStack.self).text(1)
 
 try sut.inspect().find(where: { ... }).zStack()
 ```
@@ -188,7 +192,7 @@ The parameter `traversal` allows you to toggle between "breadth-first" and "dept
 
 The parameter `skipFound` is the number of matches you want to skip before returning the matching view you need (defaults to 0).
 
-The condition is called with an anonymous view, giving you the flexibility of either unwrapping it for verifying it's type or just assuring a certain modifier is applied.
+The condition is called with an anonymous view, giving you the flexibility of either unwrapping it for verifying its type or just assuring a certain modifier is applied.
 
 Here is how `find(viewWithId:)` is implemented in the library:
 
@@ -338,6 +342,7 @@ func testStateValueChanges() {
         XCTAssertTrue(try view.actualView().flag)
     }
     ViewHosting.host(view: sut)
+    defer { ViewHosting.expel() }
     wait(for: [exp], timeout: 0.1)
 }
 ```
@@ -346,7 +351,7 @@ An advantage of this variant is simplicity and a minimal intrusion in the source
 
 ### Approach #2
 
-This one works for a more complex test scenarios where we want to inspect the view after a time span or when it receives an update from a publisher.
+This one works for more complex test scenarios where we want to inspect the view after a time span or when it receives an update from a publisher.
 
 Here is a code snippet that you need to include in the **build** target to make it work:
 
@@ -354,7 +359,7 @@ Here is a code snippet that you need to include in the **build** target to make 
 import Combine
 import SwiftUI
 
-internal final class Inspection<V> {
+internal final class Inspection<V>: @unchecked Sendable {
 
     let notice = PassthroughSubject<UInt, Never>()
     var callbacks = [UInt: (V) -> Void]()
@@ -369,6 +374,8 @@ internal final class Inspection<V> {
 
 This code is intentionally not included in the **ViewInspector** so that your build target could remain independent from the framework, and since it requires `internal` access level it doesn't leave a trace.
 
+> Note: `InspectionEmissary` requires conformance to `Sendable`. Since the conformance is added in a separate extension in the **test target**, Swift 6 requires the `Inspection<V>` class itself to already satisfy `Sendable` at its declaration site — hence the `@unchecked Sendable` above. Without it you'll see errors like *"conformance to 'Sendable' must occur in the same source file as generic class 'Inspection'"*.
+
 After you add that `class Inspection<V>` to the build target, you should extend it in the **test target** with conformance to `InspectionEmissary` protocol:
 
 ```swift
@@ -379,7 +386,7 @@ Once you add these two snippets, the **ViewInspector** will be fully armed for i
 
 ---
 
-For the same sample view we considered in the approach #1, instead of `onAppear / didAppear` dance we should use another two lines:
+For the same sample view we considered in approach #1, instead of `onAppear / didAppear` dance we should use another two lines:
 
 ```swift
 struct ContentView: View {
@@ -409,6 +416,7 @@ final class ContentViewTests: XCTestCase {
             XCTAssertTrue(try view.actualView().flag)
         }
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.1)
     }
 }
@@ -454,6 +462,7 @@ final class ContentViewTests: XCTestCase {
         }
         
         ViewHosting.host(view: sut)
+        defer { ViewHosting.expel() }
         wait(for: [exp1, exp2, exp3], timeout: 0.3)
     }
 }
@@ -475,6 +484,52 @@ For the case of `@Environment` or `@EnvironmentObject`, you can perform the inje
 ```swift
 ViewHosting.host(view: sut.environmentObject(...))
 ```
+
+Objects taken from the environment with the `@Observable` macro are supported as well, and they don't require hosting the view: the injection works with synchronous inspection:
+
+```swift
+@Observable class Router {
+    var routes: [Route] = []
+}
+
+struct LoginScreen: View {
+
+    @Environment(Router.self) private var router
+
+    var body: some View {
+        Button("Login") { router.navigate(to: .dashboard) }
+    }
+}
+
+// The test:
+let router = Router()
+let sut = LoginScreen().environment(router)
+try sut.inspect().find(button: "Login").tap()
+XCTAssertEqual(router.routes, [.dashboard])
+```
+
+Values of any type provided with `.environment(keyPath, value)` are injected in the `@Environment(keyPath)` properties of the views underneath, so the views' `body` reads the injected value instead of the `EnvironmentKey`'s default one. This works without hosting the view as well:
+
+```swift
+struct ProfileScreen: View {
+
+    @Environment(\.isPremiumUser) private var isPremiumUser
+
+    var body: some View {
+        if isPremiumUser {
+            Text("Premium")
+        } else {
+            Button("Upgrade") { ... }
+        }
+    }
+}
+
+// The test:
+let sut = ProfileScreen().environment(\.isPremiumUser, true)
+XCTAssertNoThrow(try sut.inspect().find(text: "Premium"))
+```
+
+The innermost `.environment(keyPath, value)` modifier takes precedence, just like it does in the running app. Properties not covered by a modifier keep reading the `EnvironmentKey`'s default value.
 
 ## Custom **ViewModifier**
 
@@ -529,6 +584,7 @@ func testViewModifier() {
     }
     let view = EmptyView().modifier(sut)
     ViewHosting.host(view: view)
+    defer { ViewHosting.expel() }
     wait(for: [exp], timeout: 0.1)
 }
 ```
@@ -558,6 +614,7 @@ func testViewModifier() {
     }
     let view = EmptyView().modifier(sut)
     ViewHosting.host(view: view)
+    defer { ViewHosting.expel() }
     wait(for: [exp], timeout: 0.2)
 }
 ```
@@ -567,6 +624,59 @@ If your custom `ViewModifier` references an `@EnvironmentObject` or requires set
 ```swift
 let view = EmptyView().modifier(sut).environmentObject(envObject)
 ViewHosting.host(view: view)
+```
+
+## Inspecting a mix of UIKit and SwiftUI
+
+If your custom view is `UIViewRepresentable` or `UIViewControllerRepresentable`, there is a possibility of accessing its genuine UIKit instance on screen:
+
+```swift
+let swiftuiView = try sut.inspect().find(MyCustomView.self)
+let uikitView = try swiftuiView.actualView().uiView() // or .viewController()
+```
+
+Note that UIKit hierarchy gets added on screen asynchronously - so you need to use one of the async inspection approaches discussed above. See some [examples in the tests](https://github.com/nalexn/ViewInspector/blob/master/Tests/ViewInspectorTests/ViewHostingTests.swift#L105C31-L105C31).
+
+From there you can use UIKit API to inspect subviews. However, if you're using UIKit just as a middleware and child content is again SwiftUI view, an easier way might be using the `CustomInspectable` protocol added as part of [this proposal](https://github.com/nalexn/ViewInspector/pull/288).
+
+## Async inspection
+
+If you're writing an `async` test some of the APIs change slightly. The biggest change is to `ViewHosting` which now uses a closure, and no longer needs an explicit `ViewHosting.expel()` call.
+
+```swift
+let sut = TestView(flag: false)
+try await ViewHosting.host(sut) {
+    try await sut.inspection.inspect { view in
+        let text = try view.button().labelView().text().string()
+        XCTAssertEqual(text, "false")
+        sut.publisher.send(true)
+    }
+}
+```
+
+For instances where a test is `async` but the view utilizes Combine to listen to publisher changes there can be a situation where you need to make sure that inspection subscribes to a publisher in time. In these cases, it's advisable to use a task group.
+
+```swift
+let sut = TestView(flag: false)
+try await ViewHosting.host(sut) {
+    try await withThrowingDiscardingTaskGroup { group in
+        group.addTask {
+            try await sut.inspection.inspect { view in
+                let text = try view.button().labelView().text().string()
+                XCTAssertEqual(text, "false")
+                sut.publisher.send(true)
+            }
+        }
+        
+        group.addTask {
+            try await sut.inspection.inspect(onReceive: sut.publisher) { view in
+                let text = try view.button().labelView().text().string()
+                XCTAssertEqual(text, "true")
+                sut.publisher.send(false)
+            }
+        }
+    }
+}
 ```
 
 ## Advanced topics

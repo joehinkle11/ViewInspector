@@ -4,6 +4,7 @@ import SwiftUI
 
 // MARK: - ViewPositioningTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewPositioningTests: XCTestCase {
     
@@ -78,14 +79,14 @@ final class ViewPositioningTests: XCTestCase {
     }
 
     func testIgnoresSafeArea() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
         let sut = EmptyView().ignoresSafeArea()
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
 
     func testIgnoresSafeAreaInspection() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
         let sut = try EmptyView().ignoresSafeArea(.container, edges: .bottom).inspect().emptyView().ignoresSafeArea()
         XCTAssertEqual(sut.regions, .container)
@@ -93,7 +94,7 @@ final class ViewPositioningTests: XCTestCase {
     }
 
     func testIgnoresSafeAreaDefaultsInspection() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { throw XCTSkip() }
         let sut = try EmptyView().ignoresSafeArea().inspect().emptyView().ignoresSafeArea()
         XCTAssertEqual(sut.regions, .all)
@@ -103,6 +104,7 @@ final class ViewPositioningTests: XCTestCase {
 
 // MARK: - ViewAligningTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewAligningTests: XCTestCase {
     
@@ -119,6 +121,7 @@ final class ViewAligningTests: XCTestCase {
 
 // MARK: - ViewLayeringTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewLayeringTests: XCTestCase {
     
@@ -168,7 +171,7 @@ final class ViewLayeringTests: XCTestCase {
         let background = try sut.inspect().emptyView().background()
         XCTAssertEqual(try background.alignment(), .bottom)
     }
-    
+
     func testOverlayAndBackgroundStyle() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }

@@ -4,6 +4,7 @@ import SwiftUI
 
 // MARK: - ViewColorTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewColorTests: XCTestCase {
     
@@ -59,6 +60,14 @@ final class ViewColorTests: XCTestCase {
         let sut = Group { EmptyView() }.tint(.green)
         XCTAssertEqual(try sut.inspect().group().tint(), .green)
         XCTAssertEqual(try sut.inspect().group().emptyView(0).tint(), .green)
+        guard #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+        else { throw XCTSkip() }
+        let value = Color.green
+        let sut2 = Group { EmptyView() }.tint(value)
+        XCTAssertEqual(try sut2.inspect().group().tint(), .green)
+        XCTAssertEqual(try sut2.inspect().group().emptyView(0).tint(), .green)
+        XCTAssertThrows(try EmptyView().inspect().tint(),
+                        "EmptyView does not have 'tint' modifier")
     }
     
     func testColorScheme() throws {
@@ -104,6 +113,7 @@ final class ViewColorTests: XCTestCase {
 
 // MARK: - ViewPreviewTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewPreviewTests: XCTestCase {
     
@@ -144,4 +154,4 @@ final class ViewPreviewTests: XCTestCase {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-extension PreviewLayout: BinaryEquatable { }
+extension PreviewLayout: @retroactive BinaryEquatable { }

@@ -5,6 +5,7 @@ import SwiftUI
 import CoreLocationUI.CLLocationButton
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, watchOS 6.0, *)
 @available(tvOS, unavailable)
 @available(macOS, unavailable)

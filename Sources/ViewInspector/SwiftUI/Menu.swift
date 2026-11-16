@@ -92,7 +92,7 @@ public extension InspectableView {
 #if os(iOS) || os(macOS)
 @available(iOS 14.0, macOS 11.0, *)
 @available(tvOS, unavailable)
-@available(watchOS, unavailable)
+@available(watchOS, unavailable) 
 public extension MenuStyle {
     func inspect() throws -> InspectableView<ViewType.ClassifiedView> {
         let config = MenuStyleConfiguration()

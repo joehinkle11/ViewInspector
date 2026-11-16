@@ -5,15 +5,36 @@ import SwiftUI
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectableView {
     func callOnTapGesture() throws {
-        typealias Callback = ((()) -> Void)
-        let callback = try modifierAttribute(
-            modifierName: "TapGesture",
-            path: "modifier|gesture|_body|modifier|callbacks|ended",
-            type: Callback.self, call: "onTapGesture")
-        callback(())
+        typealias Callback = () -> Void
+        if let callback = try? modifierAttribute(
+            modifierName: "TapGestureModifier",
+            path: "modifier|action",
+            type: Callback.self, call: "onTapGesture") {
+            callback()
+        } else {
+            typealias Callback = ((()) -> Void)
+            let callback = try modifierAttribute(
+                modifierName: "TapGesture",
+                path: "modifier|gesture|_body|modifier|callbacks|ended",
+                type: Callback.self, call: "onTapGesture")
+            callback(())
+        }
     }
     
     func callOnLongPressGesture() throws {
+        if let longPress = try? modifier({ modifier -> Bool in
+            guard let longPress = try? Inspector
+                .attribute(path: "modifier|gesture|content|content", value: modifier),
+                  Inspector.typeName(value: longPress) == "LongPressGesture"
+            else { return false }
+            return true
+        }, call: "onLongPressGesture"),
+           let callback = try? Inspector.attribute(
+               path: "modifier|gesture|content|modifier|callbacks|pressed|some",
+               value: longPress, type: ((CGPoint?) -> Void).self) {
+            callback(nil)
+            return
+        }
         if let longPress = try? modifier({ modifier -> Bool in
             guard let longPress = try? Inspector
                 .attribute(path: "modifier|gesture|content", value: modifier),

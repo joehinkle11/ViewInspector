@@ -11,7 +11,27 @@ public extension Locale {
      }
      ````
      */
-    static var testsDefault: Locale = Locale(identifier: "en")
+    static var testsDefault: Locale {
+        get {
+            storage.protected(\.locale)
+        }
+        set {
+            storage.protected({ $0.locale = newValue })
+        }
+    }
+
+    private final class Storage: @unchecked Sendable {
+        private let lock = NSLock()
+        var locale: Locale = Locale(identifier: "en")
+
+        @discardableResult
+        func protected<T>(_ closure: (Storage) throws -> T) rethrows -> T {
+            lock.lock()
+            defer { lock.unlock() }
+            return try closure(self)
+        }
+    }
+    private static let storage = Storage()
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -53,15 +73,15 @@ public extension InspectableView where View == ViewType.Text {
       - Parameter locale: Defaults to `Locale(identifier: "en")`,
       which is a global default value in the tests scope.
       You can change it by assigning a value to Locale.testsDefault
-    */
+    */ 
     func string(locale: Locale = .testsDefault) throws -> String {
         return try ViewType.Text.extractString(from: self, locale: locale)
     }
-    
+     
     func attributes() throws -> ViewType.Text.Attributes {
         return try ViewType.Text.Attributes.extract(from: self)
     }
-    
+     
     func images() throws -> [Image] {
         return try ViewType.Text.extractImages(from: self)
     }
@@ -71,7 +91,7 @@ public extension InspectableView where View == ViewType.Text {
      If you used explicit style modifiers, for example, `Text("Hi").bold()`,
      consider using `attributes()` instead.
      */
-    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) 
     func attributedString() throws -> AttributedString {
         return try ViewType.Text.extractAttributedString(from: self)
     }
@@ -79,6 +99,9 @@ public extension InspectableView where View == ViewType.Text {
 
 // MARK: - String extraction
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension ViewType.Text {
     
@@ -90,7 +113,7 @@ private extension ViewType.Text {
             return verbatim
         }
         let textStorage = try Inspector.attribute(path: "anyTextStorage", value: storage)
-        let storageType = Inspector.typeName(value: textStorage)
+        let storageType = Inspector.typeName(value: textStorage, generics: .remove)
         switch storageType {
         case "ConcatenatedTextStorage":
             return try extractString(concatenatedTextStorage: textStorage, locale)
@@ -98,8 +121,10 @@ private extension ViewType.Text {
             return try extractString(localizedTextStorage: textStorage, locale)
         case "AttachmentTextStorage":
             return try extractString(attachmentTextStorage: textStorage)
-        case "DateTextStorage":
+        case "DateTextStorage", "TimeDataFormattingStorage":
             return try extractString(dateTextStorage: textStorage)
+        case "FormatStyleStorage":
+            return try extractString(formatStyleStorage: textStorage, locale: locale)
         case "FormatterTextStorage":
             return try extractString(formatterTextStorage: textStorage)
         case "AttributedStringTextStorage":
@@ -107,6 +132,11 @@ private extension ViewType.Text {
                 throw InspectionError.notSupported("AttributedString is not supported in this OS version")
             }
             return String(try view.attributedString().characters)
+        case "LocalizedStringResourceStorage":
+            guard #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *) else {
+                throw InspectionError.notSupported("LocalizedStringResource is not supported in this OS version")
+            }
+            return try extractString(localizedStringResourceStorage: textStorage, locale)
         default:
             throw InspectionError.notSupported("Unknown text storage: \(storageType)")
         }
@@ -127,7 +157,21 @@ private extension ViewType.Text {
         return (try firstText.inspect().text().string(locale: locale))
             + (try secondText.inspect().text().string(locale: locale))
     }
-    
+
+    // MARK: - FormatStyleStorage
+
+    private static func extractString(formatStyleStorage: Any, locale: Locale) throws -> String {
+        let input = try Inspector
+            .attribute(path: "storage|input", value: formatStyleStorage)
+        let formatter = try Inspector
+            .attribute(path: "storage|format", value: formatStyleStorage)
+        if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *),
+            let currencyFormatter = formatter as? any FormatStyle {
+            return try currencyFormatter.format(value: input, locale: locale)
+        }
+        throw InspectionError.notSupported("Unknown text formatter: \(Inspector.typeName(value: formatter))")
+    }
+
     // MARK: - FormatterTextStorage
     
     private static func extractString(formatterTextStorage: Any) throws -> String {
@@ -136,7 +180,7 @@ private extension ViewType.Text {
         let object = try Inspector.attribute(label: "object", value: formatterTextStorage)
         return formatter.string(for: object) ?? ""
     }
-    
+
     // MARK: - AttachmentTextStorage
     
     private static func extractString(attachmentTextStorage: Any) throws -> String {
@@ -153,6 +197,16 @@ private extension ViewType.Text {
     
     private static func extractString(dateTextStorage: Any) throws -> String {
         throw InspectionError.notSupported("Inspection of formatted Date is currently not supported")
+    }
+    
+    // MARK: - LocalizedStringResourceStorage
+    
+    @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+    private static func extractString(localizedStringResourceStorage: Any, _ locale: Locale) throws -> String {
+        var resource = try Inspector
+            .attribute(label: "resource", value: localizedStringResourceStorage, type: LocalizedStringResource.self)
+        resource.locale = locale
+        return String(localized: resource)
     }
     
     // MARK: - LocalizedTextStorage
@@ -190,13 +244,11 @@ private extension ViewType.Text {
         }
 
         if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
-            if
-                let formatStyle = try? Inspector.attribute(
+            if let formatStyle = try? Inspector.attribute(
                     path: "storage|formatStyleValue|format", value: container, type: (any FormatStyle).self),
                 let input = try? Inspector.attribute(
                     path: "storage|formatStyleValue|input", value: container),
-                let string = formatStyle.string(for: input, locale: locale)
-            {
+                let string = formatStyle.string(for: input, locale: locale) {
                 return string
             }
         }
@@ -225,8 +277,27 @@ extension FormatStyle {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
+@available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+extension FormatStyle {
+
+    func format(value: Any, locale: Locale) throws -> String {
+        guard let input = value as? FormatInput else {
+            throw InspectionError.typeMismatch(
+                factual: Inspector.typeName(value: value),
+                expected: Inspector.typeName(type: FormatInput.self))
+        }
+        return String(describing: self.locale(locale).format(input))
+    }
+}
+
 // MARK: - Image extraction
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension ViewType.Text {
     
@@ -288,6 +359,9 @@ private extension ViewType.Text {
 
 // MARK: - AttributedString extraction
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 private extension ViewType.Text {
     static func extractAttributedString(from view: InspectableView<ViewType.Text>) throws -> AttributedString {

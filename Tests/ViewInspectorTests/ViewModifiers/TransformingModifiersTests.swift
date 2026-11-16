@@ -4,6 +4,7 @@ import SwiftUI
 
 // MARK: - ViewTransformingTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewTransformingTests: XCTestCase {
     
@@ -64,6 +65,7 @@ final class ViewTransformingTests: XCTestCase {
 
 // MARK: - ViewScalingTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewScalingTests: XCTestCase {
     

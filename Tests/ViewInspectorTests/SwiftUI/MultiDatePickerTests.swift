@@ -1,7 +1,10 @@
+#if os(iOS)
+
 import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, *)
 @available(macOS, unavailable)
 @available(tvOS, unavailable)
@@ -96,3 +99,5 @@ final class MultiDatePickerTests: XCTestCase {
         XCTAssertEqual(sut, maxDate)
     }
 }
+
+#endif

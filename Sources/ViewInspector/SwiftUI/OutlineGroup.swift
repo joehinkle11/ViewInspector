@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct OutlineGroup: KnownViewType {
-        public static var typePrefix: String = "OutlineGroup"
+        public static let typePrefix: String = "OutlineGroup"
     }
 }
 

@@ -54,6 +54,9 @@ public extension InspectableView {
     }
 
     func fixedSize() throws -> (horizontal: Bool, vertical: Bool) {
+        if (try? modifier({ $0.modifierType == "_UniformFixedSizeLayout" }, call: "")) != nil {
+            return (true, true)
+        }
         let horizontal = try modifierAttribute(
             modifierName: "_FixedSizeLayout", path: "modifier|horizontal",
             type: Bool.self, call: "fixedSize")
@@ -85,7 +88,7 @@ public extension InspectableView {
                          leading: try attr.cumulativeValue(edge: .leading) ?? 0,
                          bottom: try attr.cumulativeValue(edge: .bottom) ?? 0,
                          trailing: try attr.cumulativeValue(edge: .trailing) ?? 0)
-        } catch let error {
+        } catch {
             if attr.allSatisfy({ $0.edges == .all }) {
                 throw InspectionError.notSupported(
                     "Please use `hasPadding(_:)` for inspecting padding without explicit value.")

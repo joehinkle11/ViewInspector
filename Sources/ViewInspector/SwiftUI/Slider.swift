@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct Slider: KnownViewType {
-        public static var typePrefix: String = "Slider"
+        public static let typePrefix: String = "Slider"
     }
 }
 

@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class TextAttributesTests: XCTestCase {
 
@@ -191,6 +192,7 @@ final class TextAttributesTests: XCTestCase {
     }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class FontAttributesTests: XCTestCase {
     

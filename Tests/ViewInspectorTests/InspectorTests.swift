@@ -3,6 +3,7 @@ import SwiftUI
 import Combine
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class InspectorTests: XCTestCase {
     
@@ -74,6 +75,7 @@ final class InspectorTests: XCTestCase {
     
     func testPrintValue() {
         let sut = TestPrintView()
+        #if compiler(<6) || compiler(>=6.1)
         let str = """
                 TestPrintView
                   body: Text
@@ -85,6 +87,21 @@ final class InspectorTests: XCTestCase {
                     [1] = def
 
                 """
+        #else
+        let str = """
+                TestPrintView
+                  body: AnyView
+                    storage: AnyViewStorage<Text>
+                      view: Text
+                        modifiers: Array<Modifier> = []
+                        storage: Storage
+                          verbatim: String = abc
+                  str: Array<String>
+                    [0] = abc
+                    [1] = def
+
+                """
+        #endif
         XCTAssertEqual(Inspector.print(sut), str)
     }
     
@@ -128,20 +145,32 @@ final class InspectorTests: XCTestCase {
     
     func testPrintTypeReference() {
         let sut = ViewWithTypeReference()
+        #if compiler(<6) || compiler(>=6.1)
         XCTAssertEqual(Inspector.print(sut), """
             ViewWithTypeReference
               body: EmptyView = EmptyView()
               ref: Any.Type
-            
+
             """)
-        XCTAssertNoThrow(try sut.inspect().emptyView())
+        #else
+        XCTAssertEqual(Inspector.print(sut), """
+            ViewWithTypeReference
+              body: AnyView
+                storage: AnyViewStorage<EmptyView>
+                  view: EmptyView = EmptyView()
+              ref: Any.Type
+
+            """)
+        #endif
+        XCTAssertNoThrow(try sut.inspect().implicitAnyView().emptyView())
     }
     
     func testTupleView() throws {
         let view = HStack { Text(""); Text("") }
         let content = try Inspector.attribute(path: "_tree|content", value: view)
-        XCTAssertTrue(Inspector.isTupleView(content))
-        XCTAssertFalse(Inspector.isTupleView((0, 2)))
+        // ViewBuilder produces `TupleContent` instead of `TupleView` since iOS 27
+        XCTAssertTrue(Inspector.isViewTuple(content))
+        XCTAssertFalse(Inspector.isViewTuple((0, 2)))
     }
     
     func testGuardType() throws {
@@ -178,6 +207,7 @@ final class InspectorTests: XCTestCase {
     }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class InspectableViewModifiersTests: XCTestCase {
     
@@ -231,15 +261,20 @@ final class InspectableViewModifiersTests: XCTestCase {
                     TestPrintView().padding()
                 })
            })
+        #if compiler(<6) || compiler(>=6.1)
         let sut = try view.inspect().anyView().group().emptyView(1).overlay()
             .hStack().view(TestPrintView.self, 1).text()
+        #else
+        let sut = try view.inspect().anyView().group().emptyView(1).overlay()
+            .hStack().view(TestPrintView.self, 1).implicitAnyView().text().parent()
+        #endif
         // Cannot use `XCTAssertThrows` because test target changes name
         // between ViewInspectorTests and ViewInspector_Unit_Tests under cocoapods tests
         // ViewInspectorTests.TestPrintView vs ViewInspector_Unit_Tests.TestPrintView
         do {
             _ = try sut.parent().group()
             XCTFail("Expected to throw")
-        } catch let error {
+        } catch {
             let message = error.localizedDescription
             XCTAssertTrue(message
                 .hasPrefix("anyView().group().emptyView(1).overlay().hStack().group() found "))
@@ -266,10 +301,17 @@ final class InspectableViewModifiersTests: XCTestCase {
         let view2 = TestPrintView()
         let sut3 = try view2.inspect()
         XCTAssertEqual(sut3.pathToRoot, "")
+        #if compiler(<6) || compiler(>=6.1)
         let sut4 = try view2.inspect().text()
         XCTAssertEqual(sut4.pathToRoot, "view(TestPrintView.self).text()")
         let sut5 = try view2.inspect().text(0)
         XCTAssertEqual(sut5.pathToRoot, "view(TestPrintView.self).text(0)")
+        #else
+        let sut4 = try view2.inspect().implicitAnyView().text()
+        XCTAssertEqual(sut4.pathToRoot, "view(TestPrintView.self).anyView().text()")
+        let sut5 = try view2.inspect().implicitAnyView().text(0)
+        XCTAssertEqual(sut5.pathToRoot, "view(TestPrintView.self).anyView().text(0)")
+        #endif
     }
     
     func testPathToRootComplexHierarchy() throws {
@@ -282,10 +324,18 @@ final class InspectableViewModifiersTests: XCTestCase {
                     TestPrintView().padding()
                 })
            })
+        #if compiler(<6) || compiler(>=6.1)
         let sut1 = try view1.inspect().anyView().group().emptyView(1).overlay()
             .hStack().view(TestPrintView.self, 1).text()
         XCTAssertEqual(sut1.pathToRoot,
         "anyView().group().emptyView(1).overlay().hStack().view(TestPrintView.self, 1).text()")
+        #else
+        let sut0 = try view1.inspect().anyView().group().emptyView(1).overlay()
+            .hStack().view(TestPrintView.self, 1).anyView().text()
+        XCTAssertEqual(sut0.pathToRoot,
+        "anyView().group().emptyView(1).overlay().hStack().view(TestPrintView.self, 1).anyView().text()")
+        let sut1 = try sut0.parent()
+        #endif
         XCTAssertEqual(try sut1.parent().pathToRoot,
         "anyView().group().emptyView(1).overlay().hStack().view(TestPrintView.self, 1)")
         XCTAssertEqual(try sut1.parent().parent().pathToRoot,

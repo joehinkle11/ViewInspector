@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, tvOS 14.0, macOS 10.15, *)
 final class TreeViewTests: XCTestCase {
     
@@ -39,6 +40,7 @@ final class TreeViewTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(iOS 13.0, tvOS 14.0, macOS 10.15, *)
 final class GlobalModifiersForTreeView: XCTestCase {
     

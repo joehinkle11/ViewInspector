@@ -5,6 +5,7 @@ import Combine
 
 // MARK: - InteractionTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class InteractionTests: XCTestCase {
     
@@ -158,6 +159,7 @@ final class InteractionTests: XCTestCase {
 
 // MARK: - ViewHoverTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewHoverTests: XCTestCase {
     
@@ -180,7 +182,7 @@ final class ViewHoverTests: XCTestCase {
     */
     #endif
     
-    #if !os(iOS)
+    #if !os(iOS) && !os(visionOS)
     func testFocusable() throws {
         let sut = EmptyView().focusable(true) { _ in }
         XCTAssertNoThrow(try sut.inspect().emptyView())
@@ -201,6 +203,7 @@ final class ViewHoverTests: XCTestCase {
 
 // MARK: - ViewDragDropTests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewDragDropTests: XCTestCase {
     

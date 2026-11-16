@@ -5,7 +5,7 @@ import UniformTypeIdentifiers.UTType
 public extension ViewType {
     
     struct PasteButton: KnownViewType {
-        public static var typePrefix: String = "PasteButton"
+        public static let typePrefix: String = "PasteButton"
     }
 }
 

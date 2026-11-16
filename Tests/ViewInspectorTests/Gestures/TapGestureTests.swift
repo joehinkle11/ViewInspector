@@ -5,6 +5,7 @@ import Combine
 
 // MARK: - Tap Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 16.0, *)
 final class TapGestureTests: XCTestCase {
     
@@ -13,17 +14,21 @@ final class TapGestureTests: XCTestCase {
     var gestureTests: CommonGestureTests<TapGesture>?
     
     override func setUpWithError() throws {
-        tapValue = TapGesture.Value()
+        MainActor.assumeIsolated {
+            tapValue = TapGesture.Value()
         
-        gestureTests = CommonGestureTests<TapGesture>(testCase: self,
-                                                      gesture: TapGesture(),
-                                                      value: tapValue!,
-                                                      assert: assertTapValue)
+            gestureTests = CommonGestureTests<TapGesture>(testCase: self,
+                                                          gesture: TapGesture(),
+                                                          value: tapValue!,
+                                                          assert: assertTapValue)
+        }
     }
     
     override func tearDownWithError() throws {
-        tapValue = nil
-        gestureTests = nil
+        MainActor.assumeIsolated {
+            tapValue = nil
+            gestureTests = nil
+        }
     }
 
     func testCreateTapGestureValue() throws {
@@ -116,3 +121,6 @@ final class TapGestureTests: XCTestCase {
         XCTAssertTrue(value == ())
     }
 }
+
+@available(iOS 13.0, macOS 10.15, tvOS 16.0, *)
+extension TapGestureTests: @unchecked Sendable { }

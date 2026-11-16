@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
 
     struct NavigationDestination: KnownViewType {
-        public static var typePrefix: String = "ViewDestinationNavigationDestinationModifier"
+        public static let typePrefix: String = "ViewDestinationNavigationDestinationModifier"
         public static func inspectionCall(typeName: String) -> String {
             return "navigationDestination(\(ViewType.indexPlaceholder))"
         }

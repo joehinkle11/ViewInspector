@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Sequence Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -20,22 +23,26 @@ final class SequenceGestureTests: XCTestCase {
     var gestureTests: CommonGestureTests<SequenceGesture<MagnificationGesture, RotationGesture>>?
     
     override func setUpWithError() throws {
-        magnificationMagnifyBy = 10
-        magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
-        sequenceGestureValue = SequenceGesture<MagnificationGesture, RotationGesture>.Value.first(magnificationValue!)
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = 10
+            magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
+            sequenceGestureValue = SequenceGesture<MagnificationGesture, RotationGesture>.Value.first(magnificationValue!)
 
-        gestureTests = CommonGestureTests<SequenceGesture<MagnificationGesture, RotationGesture>>(
-            testCase: self,
-            gesture: SequenceGesture(MagnificationGesture(), RotationGesture()),
-            value: sequenceGestureValue!,
-            assert: assertSequenceGestureValue)
+            gestureTests = CommonGestureTests<SequenceGesture<MagnificationGesture, RotationGesture>>(
+                testCase: self,
+                gesture: SequenceGesture(MagnificationGesture(), RotationGesture()),
+                value: sequenceGestureValue!,
+                assert: assertSequenceGestureValue)
+        }
     }
     
     override func tearDownWithError() throws {
-        magnificationMagnifyBy = nil
-        magnificationValue = nil
-        sequenceGestureValue = nil
-        gestureTests = nil
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = nil
+            magnificationValue = nil
+            sequenceGestureValue = nil
+            gestureTests = nil
+        }
     }
 
     func testCreateSequenceGestureValue() throws {
@@ -54,6 +61,18 @@ final class SequenceGestureTests: XCTestCase {
             RotationGesture(minimumAngleDelta: Angle(degrees: 5))))
         let emptyView = try sut.inspect().emptyView()
         let gesture = try emptyView.gesture(SequenceGesture<MagnificationGesture, RotationGesture>.self)
+        let sequenceGesture = try gesture.actualGesture()
+        XCTAssertEqual(sequenceGesture.first.minimumScaleDelta, 1.5)
+        XCTAssertEqual(sequenceGesture.second.minimumAngleDelta, Angle(degrees: 5))
+    }
+    
+    @available(iOS 17.0, macOS 14.0, *)
+    func testSequenceGestureWithMagnifyAndRotateGestures() throws {
+        let sut = EmptyView().gesture(SequenceGesture(
+            MagnifyGesture(minimumScaleDelta: 1.5),
+            RotationGesture(minimumAngleDelta: Angle(degrees: 5))))
+        let emptyView = try sut.inspect().emptyView()
+        let gesture = try emptyView.gesture(SequenceGesture<MagnifyGesture, RotationGesture>.self)
         let sequenceGesture = try gesture.actualGesture()
         XCTAssertEqual(sequenceGesture.first.minimumScaleDelta, 1.5)
         XCTAssertEqual(sequenceGesture.second.minimumAngleDelta, Angle(degrees: 5))
@@ -139,3 +158,6 @@ final class SequenceGestureTests: XCTestCase {
         XCTAssertEqual(value, sequenceGestureValue, file: file, line: line)
     }
 }
+
+extension SequenceGestureTests: @unchecked Sendable { }
+#endif

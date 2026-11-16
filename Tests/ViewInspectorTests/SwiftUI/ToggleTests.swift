@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ToggleTests: XCTestCase {
     
@@ -20,9 +21,6 @@ final class ToggleTests: XCTestCase {
     }
     
     func testTapAndIsOn() throws {
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
-            throw XCTSkip()
-        }
         let binding = Binding(wrappedValue: false)
         let view = Toggle(isOn: binding) { Text("") }
         let sut = try view.inspect().toggle()
@@ -34,9 +32,6 @@ final class ToggleTests: XCTestCase {
     }
     
     func testTapWhenDisabled() throws {
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
-            throw XCTSkip()
-        }
         let binding = Binding(wrappedValue: false)
         let view = Toggle(isOn: binding) { Text("") }.disabled(true)
         let sut = try view.inspect().toggle()
@@ -75,14 +70,15 @@ final class ToggleTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class GlobalModifiersForToggle: XCTestCase {
-    
+
     func testToggleStyle() throws {
         let sut = EmptyView().toggleStyle(DefaultToggleStyle())
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
-    
+
     func testToggleStyleInspection() throws {
         let sut = EmptyView().toggleStyle(DefaultToggleStyle())
         XCTAssertTrue(try sut.inspect().toggleStyle() is DefaultToggleStyle)
@@ -94,11 +90,11 @@ final class GlobalModifiersForToggle: XCTestCase {
         XCTAssertFalse(sut1.isOn)
         XCTAssertTrue(sut2.isOn)
     }
-    
+
     func testCustomMenuStyleInspection() throws {
         let sut = TestToggleStyle()
-        XCTAssertEqual(try sut.inspect(isOn: true).vStack().styleConfigurationLabel(0).blur().radius, 5)
-        XCTAssertEqual(try sut.inspect(isOn: false).vStack().styleConfigurationLabel(0).blur().radius, 0)
+        XCTAssertEqual(try sut.inspect(isOn: true).implicitAnyView().vStack().styleConfigurationLabel(0).blur().radius, 5)
+        XCTAssertEqual(try sut.inspect(isOn: false).implicitAnyView().vStack().styleConfigurationLabel(0).blur().radius, 0)
     }
 }
 

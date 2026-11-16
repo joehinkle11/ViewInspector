@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class PickerTests: XCTestCase {
     
@@ -53,8 +54,8 @@ final class PickerTests: XCTestCase {
     func testResetsModifiers() throws {
         let binding = Binding<Int?>(wrappedValue: nil)
         let view = Picker(selection: binding, label: Text("Title")) {
-            Text("First Option").tag(0)
-            Text("Second Option").tag(1)
+            Text("First Option").offset()
+            Text("Second Option").offset()
         }.padding().padding()
         let sut = try view.inspect().picker().text(0)
         XCTAssertEqual(sut.content.medium.viewModifiers.count, 1)
@@ -112,6 +113,7 @@ final class PickerTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class GlobalModifiersForPicker: XCTestCase {
     

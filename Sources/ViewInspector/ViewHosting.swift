@@ -5,18 +5,50 @@ import UIKit
 #endif
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public struct ViewHosting { }
+#if swift(>=6.0)
+@MainActor
+#endif
+public enum ViewHosting { }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public extension ViewHosting {
     
-    struct ViewId: Hashable {
+    struct ViewId: Hashable, Sendable {
         let function: String
         var key: String { function }
     }
-    
+
+    @available(*, deprecated, message: "Use `host` version that doesn't supply the view in the `whileHosted` closure. See: https://github.com/nalexn/ViewInspector/discussions/354")
+    @MainActor
+    static func host<V>(_ view: V, size: CGSize? = nil,
+                        function: String = #function,
+                        whileHosted: @MainActor (V) async throws -> Void
+    ) async throws where V: View {
+        let viewId = ViewId(function: function)
+        host(view: view, size: size, viewId: viewId)
+        try await whileHosted(view)
+        expel(viewId: viewId)
+    }
+
+    @MainActor
+    static func host<V>(_ view: V, size: CGSize? = nil,
+                        function: String = #function,
+                        whileHosted: @MainActor () async throws -> Void
+    ) async throws where V: View {
+        try await host(view, size: size, function: function, whileHosted: { _ in
+            try await whileHosted()
+        })
+    }
+
     static func host<V>(view: V, size: CGSize? = nil, function: String = #function) where V: View {
         let viewId = ViewId(function: function)
+        MainActor.assumeIsolated {
+            host(view: view, size: size, viewId: viewId)
+        }
+    }
+
+    @MainActor
+    private static func host<V>(view: V, size: CGSize? = nil, viewId: ViewId) where V: View {
         let medium = { () -> Content.Medium in
             guard let unwrapped = try? Inspector.unwrap(view: view, medium: .empty)
             else { return .empty }
@@ -56,14 +88,21 @@ public extension ViewHosting {
         window.layoutIfNeeded()
         #endif
     }
-    
+
     static func expel(function: String = #function) {
         let viewId = ViewId(function: function)
+        MainActor.assumeIsolated {
+            expel(viewId: viewId)
+        }
+    }
+
+    @MainActor
+    private static func expel(viewId: ViewId) {
         #if os(watchOS)
-        _ = expel(viewId: viewId)
+        _ = expelHosted(viewId: viewId)
         try? watchOS(host: nil, viewId: viewId)
         #else
-        guard let hosted = expel(viewId: viewId) else { return }
+        guard let hosted = expelHosted(viewId: viewId) else { return }
         let childVC = hosted.viewController
         willMove(childVC, to: nil)
         childVC.view.removeFromSuperview()
@@ -91,31 +130,38 @@ public extension ViewHosting {
         subject.send(array)
     }
     #endif
-    
+
     internal static func medium(function: String = #function) -> Content.Medium {
         let viewId = ViewHosting.ViewId(function: function)
+        #if swift(>=6.0)
         return hosted[viewId]?.medium ?? .empty
+        #else
+        return MainActor.assumeIsolated {
+            hosted[viewId]?.medium ?? .empty
+        }
+        #endif
     }
 }
 
 // MARK: - Private
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@MainActor
 private extension ViewHosting {
     
     struct Hosted {
         #if os(macOS)
         let viewController: NSViewController
-        #elseif os(iOS) || os(tvOS)
+        #elseif os(iOS) || os(tvOS) || os(visionOS)
         let viewController: UIViewController
         #endif
         let medium: Content.Medium
     }
     private static var hosted: [ViewId: Hosted] = [:]
     #if os(macOS)
-    static var window: NSWindow = makeWindow()
-    #elseif os(iOS) || os(tvOS)
-    static var window: UIWindow = makeWindow()
+    static let window: NSWindow = makeWindow()
+    #elseif os(iOS) || os(tvOS) || os(visionOS)
+    static let window: UIWindow = makeWindow()
     #endif
     
     // MARK: - Window construction
@@ -127,19 +173,36 @@ private extension ViewHosting {
             styleMask: [.titled, .resizable, .miniaturizable, .closable],
             backing: .buffered,
             defer: false)
-        window.contentViewController = RootViewController()
+        installRootViewController(window)
         window.makeKeyAndOrderFront(window)
         window.layoutIfNeeded()
         return window
     }
-    #elseif os(iOS) || os(tvOS)
+    @discardableResult
+    static func installRootViewController(_ window: NSWindow) -> NSViewController {
+        let vc = RootViewController()
+        window.contentViewController = vc
+        return vc
+    }
+    #elseif os(iOS) || os(tvOS) || os(visionOS)
     static func makeWindow() -> UIWindow {
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = UIViewController()
-        window.rootViewController?.view.translatesAutoresizingMaskIntoConstraints = false
+        #if os(visionOS)
+        let frame = CGRect(x: 0, y: 0, width: 1280, height: 720)
+        #else
+        let frame = UIScreen.main.bounds
+        #endif
+        let window = UIWindow(frame: frame)
+        installRootViewController(window)
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         return window
+    }
+    @discardableResult
+    static func installRootViewController(_ window: UIWindow) -> UIViewController {
+        let vc = UIViewController()
+        window.rootViewController = vc
+        vc.view.translatesAutoresizingMaskIntoConstraints = false
+        return vc
     }
     #endif
     
@@ -147,14 +210,14 @@ private extension ViewHosting {
     
     #if os(macOS)
     static var rootViewController: NSViewController {
-        window.contentViewController!
+        window.contentViewController ?? installRootViewController(window)
     }
     static func hostVC<V>(_ view: V) -> NSHostingController<V> where V: View {
         NSHostingController(rootView: view)
     }
-    #elseif os(iOS) || os(tvOS)
+    #elseif os(iOS) || os(tvOS) || os(visionOS)
     static var rootViewController: UIViewController {
-        window.rootViewController!
+        window.rootViewController ?? installRootViewController(window)
     }
     static func hostVC<V>(_ view: V) -> UIHostingController<V> where V: View {
         UIHostingController(rootView: view)
@@ -168,7 +231,7 @@ private extension ViewHosting {
     }
     static func didMove(_ child: NSViewController, to parent: NSViewController?) {
     }
-    #elseif os(iOS) || os(tvOS)
+    #elseif os(iOS) || os(tvOS) || os(visionOS)
     static func willMove(_ child: UIViewController, to parent: UIViewController?) {
         child.willMove(toParent: parent)
     }
@@ -183,7 +246,7 @@ private extension ViewHosting {
         self.hosted[viewId] = hosted
     }
     
-    static func expel(viewId: ViewId) -> Hosted? {
+    static func expelHosted(viewId: ViewId) -> Hosted? {
         return hosted.removeValue(forKey: viewId)
     }
 }
@@ -228,6 +291,7 @@ private class RootViewController: NSViewController {
 // MARK: - UIView lookup
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+@MainActor
 internal extension ViewHosting {
     #if os(macOS)
     static func lookup<V>(_ view: V.Type) throws -> V.NSViewType
@@ -253,7 +317,7 @@ internal extension ViewHosting {
             else { throw InspectionError.viewNotFound(parent: name) }
             return vc
     }
-    #elseif os(iOS) || os(tvOS)
+    #elseif os(iOS) || os(tvOS) || os(visionOS)
     static func lookup<V>(_ view: V.Type) throws -> V.UIViewType
         where V: UIViewRepresentable {
             let name = Inspector.typeName(type: view)
@@ -276,14 +340,23 @@ internal extension ViewHosting {
     static func lookup<V>(_ view: V.Type) throws -> V.WKInterfaceObjectType
         where V: WKInterfaceObjectRepresentable {
             let name = Inspector.typeName(type: view)
-            guard let rootVC = rootInterfaceController,
-                  let viewCache = try? Inspector.attribute(path: """
-                  super|$__lazy_storage_$_hostingController|some|\
-                  host|renderer|renderer|some|viewCache|map
-                  """, value: rootVC, type: ArrayConvertible.self).allValues(),
+            guard let rootVC = rootInterfaceController else {
+                throw InspectionError.viewNotFound(parent: name)
+            }
+            let host = try? Inspector.attribute(path: "super|_hostingController|some|host|_base", value: rootVC)
+                ?? (try? Inspector.attribute(path: "super|$__lazy_storage_$_hostingController|some|host", value: rootVC))
+            let viewCacheMapPath: String, viewProviderPath: String
+            if #available(watchOS 26, *) {
+                viewCacheMapPath = "some|viewGraph|renderer|renderer|some|viewCache|map"
+                viewProviderPath = "container|super|coreRepresentedViewProvider"
+            } else {
+                viewCacheMapPath = "some|renderer|renderer|some|viewCache|map"
+                viewProviderPath = "view|representedViewProvider"
+            }
+            guard let viewCache = try? Inspector.attribute(path: viewCacheMapPath, value: host, type: ArrayConvertible.self).allValues(),
                   let object = viewCache.compactMap({ value in
                       try? Inspector.attribute(
-                        path: "view|representedViewProvider",
+                        path: viewProviderPath,
                         value: value, type: V.WKInterfaceObjectType.self)
                   }).first
             else {
@@ -337,7 +410,7 @@ private extension NSViewController {
         return presented + children
     }
 }
-#elseif os(iOS) || os(tvOS)
+#elseif os(iOS) || os(tvOS) || os(visionOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension UIView {
     func descendant(nameTraits: [String]) -> UIView? {

@@ -1,7 +1,10 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 @testable import ViewInspector
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -95,12 +98,12 @@ final class GroupBoxTests: XCTestCase {
         let sut = EmptyView().groupBoxStyle(DefaultGroupBoxStyle())
         XCTAssertTrue(try sut.inspect().groupBoxStyle() is DefaultGroupBoxStyle)
     }
-    
+
     func testCustomGroupBoxStyleInspection() throws {
         guard #available(iOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = TestGroupBoxStyle()
-        XCTAssertEqual(try sut.inspect().vStack().styleConfigurationContent(0).blur().radius, 5)
-        XCTAssertEqual(try sut.inspect().vStack().styleConfigurationLabel(1).brightness(), 3)
+        XCTAssertEqual(try sut.inspect().implicitAnyView().vStack().styleConfigurationContent(0).blur().radius, 5)
+        XCTAssertEqual(try sut.inspect().implicitAnyView().vStack().styleConfigurationLabel(1).brightness(), 3)
         XCTAssertThrows(try EmptyView().inspect().styleConfigurationContent(),
         """
         styleConfigurationContent() found EmptyView instead of \
@@ -109,6 +112,8 @@ final class GroupBoxTests: XCTestCase {
     }
     #endif
 }
+
+#endif
 
 #if os(iOS) || os(macOS)
 @available(iOS 14.0, macOS 11.0, *)

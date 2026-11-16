@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Magnification Gesture Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -16,19 +19,23 @@ final class MagnificationGestureTests: XCTestCase {
     var gestureTests: CommonGestureTests<MagnificationGesture>?
     
     override func setUpWithError() throws {
-        magnificationMagnifyBy = 10
-        magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = 10
+            magnificationValue = MagnificationGesture.Value(magnifyBy: magnificationMagnifyBy!)
         
-        gestureTests = CommonGestureTests<MagnificationGesture>(testCase: self,
-                                                                gesture: MagnificationGesture(),
-                                                                value: magnificationValue!,
-                                                                assert: assertMagnificationValue)
+            gestureTests = CommonGestureTests<MagnificationGesture>(testCase: self,
+                                                                    gesture: MagnificationGesture(),
+                                                                    value: magnificationValue!,
+                                                                    assert: assertMagnificationValue)
+        }
     }
     
     override func tearDownWithError() throws {
-        magnificationMagnifyBy = nil
-        magnificationValue = nil
-        gestureTests = nil
+        MainActor.assumeIsolated {
+            magnificationMagnifyBy = nil
+            magnificationValue = nil
+            gestureTests = nil
+        }
     }
 
     func testCreateMagnificationGestureValue() throws {
@@ -143,3 +150,6 @@ final class MagnificationGestureTests: XCTestCase {
         XCTAssertEqual(value, magnificationMagnifyBy!)
     }
 }
+
+extension MagnificationGestureTests: @unchecked Sendable { }
+#endif

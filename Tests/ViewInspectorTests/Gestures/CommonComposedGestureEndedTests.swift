@@ -1,3 +1,5 @@
+#if !os(watchOS) && !os(tvOS)
+
 import XCTest
 import SwiftUI
 import Combine
@@ -5,6 +7,7 @@ import Combine
 
 // MARK: - Common Composed Gesture Ended Tests
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
@@ -63,7 +66,7 @@ final class CommonComposedGestureEndedTests<U: Gesture> {
         (_EndedGesture<_ChangedGesture<MagnificationGesture>>,
          _EndedGesture<_ChangedGesture<RotationGesture>>) -> T
 
-    func callEndedNotFirstTest<T: Gesture> (
+    func callEndedNotFirstTest<T: Gesture>(
         _ order: InspectableView<ViewType.Gesture<T>>.GestureOrder,
         file: StaticString = #filePath, line: UInt = #line,
         _ factory: ComposedGestureEndedNotFirst<T>) throws {
@@ -156,3 +159,5 @@ final class CommonComposedGestureEndedTests<U: Gesture> {
         }
     }
 }
+
+#endif

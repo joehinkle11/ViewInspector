@@ -1,7 +1,14 @@
 import SwiftUI
+#if canImport(XCTest)
 import XCTest
+#else
+private func XCTFail(_ message: String = "", file: StaticString = #filePath, line: UInt = #line) { }
+#endif
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+#if swift(>=6.0)
+@MainActor
+#endif
 public struct InspectableView<View> where View: BaseViewType {
     
     internal let content: Content
@@ -21,8 +28,9 @@ public struct InspectableView<View> where View: BaseViewType {
     
     private static func build(content: Content, parent: UnwrappedView?, call: String, index: Int?) throws -> Self {
         if !View.typePrefix.isEmpty,
-           Inspector.isTupleView(content.view),
-           View.self != ViewType.TupleView.self {
+           Inspector.isViewTuple(content.view),
+           View.self != ViewType.TupleView.self,
+           View.self != ViewType.TupleContentView.self {
             throw InspectionError.notSupported(
                 "Unable to extract \(View.typePrefix): please specify its index inside parent view")
         }
@@ -87,6 +95,9 @@ extension UnwrappedView {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+#if swift(>=6.0)
+@MainActor
+#endif
 internal protocol UnwrappedView {
     var content: Content { get }
     var parentView: UnwrappedView? { get }
@@ -158,6 +169,22 @@ public extension InspectableView {
     }
 }
 
+#if compiler(<6) || compiler(>=6.1)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension InspectableView where View: SingleViewContent {
+    func implicitAnyView() throws -> InspectableView<View> {
+        return self
+    }
+}
+#else
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension InspectableView where View: SingleViewContent {
+    func implicitAnyView() throws -> InspectableView<ViewType.AnyView> {
+        return try anyView()
+    }
+}
+#endif
+
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension InspectableView where View: SingleViewContent {
     func child() throws -> Content {
@@ -178,11 +205,11 @@ internal extension InspectableView where View: MultipleViewContent {
             throw InspectionError.viewIndexOutOfBounds(index: index, count: viewes.count)
         }
         let child = try viewes.element(at: index)
-        if !isTupleExtraction && Inspector.isTupleView(child.view) {
-            // swiftlint:disable line_length
+        if !isTupleExtraction && Inspector.isViewTuple(child.view) {
+            let call = Inspector.isTupleContentView(child.view) ? "tupleContentView" : "tupleView"
             throw InspectionError.notSupported(
-                "Please insert .tupleView(\(index)) after \(Inspector.typeName(type: View.self)) for inspecting its children at index \(index)")
-            // swiftlint:enable line_length
+                // swiftlint:disable:next line_length
+                "Please insert .\(call)(\(index)) after \(Inspector.typeName(type: View.self)) for inspecting its children at index \(index)")
         }
         return child
     }
@@ -190,15 +217,17 @@ internal extension InspectableView where View: MultipleViewContent {
 
 // MARK: - Inspection of a Custom View
 
+#if swift(>=6.0)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@MainActor
 public extension View {
-    
+
     func inspect(function: String = #function) throws -> InspectableView<ViewType.ClassifiedView> {
         let medium = ViewHosting.medium(function: function)
         let content = try Inspector.unwrap(view: self, medium: medium)
         return try .init(content, parent: nil, call: "")
     }
-    
+
     func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
                  inspection: (InspectableView<ViewType.View<Self>>) throws -> Void) {
         do {
@@ -210,18 +239,44 @@ public extension View {
         }
     }
 }
+#else
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension View {
+
+    nonisolated
+    func inspect(function: String = #function) throws -> InspectableView<ViewType.ClassifiedView> {
+        let medium = ViewHosting.medium(function: function)
+        let content = try Inspector.unwrap(view: self, medium: medium)
+        return try .init(content, parent: nil, call: "")
+    }
+
+    nonisolated
+    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+                 inspection: (InspectableView<ViewType.View<Self>>) throws -> Void) {
+        do {
+            let view = try inspect(function: function)
+                .asInspectableView(ofType: ViewType.View<Self>.self)
+            try inspection(view)
+        } catch {
+            XCTFail("\(error.localizedDescription)", file: file, line: line)
+        }
+    }
+}
+#endif
 
 // MARK: - Modifiers
 
+#if swift(>=6.0)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@MainActor
 public extension ViewModifier {
-    
+
     func inspect(function: String = #function) throws -> InspectableView<ViewType.ViewModifier<Self>> {
         let medium = ViewHosting.medium(function: function)
         let content = try Inspector.unwrap(view: self, medium: medium)
         return try .init(content, parent: nil, call: "")
     }
-    
+
     func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
                  inspection: (InspectableView<ViewType.ViewModifier<Self>>) throws -> Void) {
         do {
@@ -231,6 +286,28 @@ public extension ViewModifier {
         }
     }
 }
+#else
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension ViewModifier {
+
+    nonisolated
+    func inspect(function: String = #function) throws -> InspectableView<ViewType.ViewModifier<Self>> {
+        let medium = ViewHosting.medium(function: function)
+        let content = try Inspector.unwrap(view: self, medium: medium)
+        return try .init(content, parent: nil, call: "")
+    }
+
+    nonisolated
+    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+                 inspection: (InspectableView<ViewType.ViewModifier<Self>>) throws -> Void) {
+        do {
+            try inspection(try inspect(function: function))
+        } catch {
+            XCTFail("\(error.localizedDescription)", file: file, line: line)
+        }
+    }
+}
+#endif
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension InspectableView {
@@ -325,6 +402,9 @@ internal extension Content {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal protocol ModifierNameProvider {
     var modifierType: String { get }

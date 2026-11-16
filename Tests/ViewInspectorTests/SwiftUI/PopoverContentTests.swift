@@ -46,6 +46,7 @@ class PopoverContentTests: XCTestCase {
         window.orderOut(nil)
     }
 
+    @MainActor
     func testPopoverContent() throws {
         guard #unavailable(macOS 14.0) else {
             throw XCTSkip("Support discontinued for macOS 14.0")

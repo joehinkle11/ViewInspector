@@ -5,6 +5,7 @@ import SwiftUI
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class CanvasTests: XCTestCase {
     
+    @MainActor
     func testEnclosedView() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -12,6 +13,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertNoThrow(try sut.inspect().canvas().symbolsView().spacer())
     }
     
+    @MainActor
     func testResetsModifiers() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -20,6 +22,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(view.content.medium.viewModifiers.count, 0)
     }
     
+    @MainActor
     func testExtractionFromSingleViewContainer() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -27,6 +30,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertNoThrow(try view.inspect().button().labelView().canvas())
     }
     
+    @MainActor
     func testExtractionFromMultipleViewContainer() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -38,6 +42,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertNoThrow(try view.inspect().hStack().canvas(1))
     }
     
+    @MainActor
     func testSearch() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -46,6 +51,7 @@ final class CanvasTests: XCTestCase {
             "anyView().canvas().symbolsView().spacer()")
     }
     
+    @MainActor
     func testColorMode() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -55,6 +61,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertEqual(try sut2.inspect().canvas().colorMode(), .nonLinear)
     }
     
+    @MainActor
     func testOpaque() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }
@@ -64,6 +71,7 @@ final class CanvasTests: XCTestCase {
         XCTAssertFalse(try sut2.inspect().canvas().opaque())
     }
     
+    @MainActor
     func testRendersAsynchronously() throws {
         guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
         else { throw XCTSkip() }

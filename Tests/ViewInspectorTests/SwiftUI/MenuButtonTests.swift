@@ -4,6 +4,7 @@ import SwiftUI
 
 #if os(macOS)
 
+@MainActor
 @available(macOS 10.15, *)
 @available(iOS, unavailable)
 @available(tvOS, unavailable)
@@ -53,6 +54,7 @@ final class MenuButtonTests: XCTestCase {
 
 // MARK: - View Modifiers
 
+@MainActor
 @available(macOS 10.15, *)
 @available(iOS, unavailable)
 @available(tvOS, unavailable)

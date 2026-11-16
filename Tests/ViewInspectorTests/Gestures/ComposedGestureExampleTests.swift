@@ -3,15 +3,18 @@ import SwiftUI
 import Combine
 @testable import ViewInspector
 
+#if !os(watchOS) && !os(tvOS)
+@MainActor
 @available(iOS 13.0, macOS 11, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
 final class ComposedGestureExampleTests: XCTestCase {
-    
+
     func testComposedGestureFirst() throws {
         let sut = TestGestureView10()
         let exp1 = sut.inspection.inspect { view in
             let simultaneousGesture = try view
+                .implicitAnyView()
                 .vStack()
                 .image(0)
                 .gesture(SimultaneousGesture<MagnificationGesture, RotationGesture>.self)
@@ -22,18 +25,20 @@ final class ComposedGestureExampleTests: XCTestCase {
             sut.publisher.send()
         }
         
-        let exp2 = sut.inspection.inspect { view in
+        let exp2 = sut.inspection.inspect(onReceive: sut.publisher) { view in
             XCTAssertEqual(try view.actualView().scale, 2.0)
         }
 
         ViewHosting.host(view: sut)
-        wait(for: [exp1, exp2], timeout: 0.1)
+        defer { ViewHosting.expel() }
+        wait(for: [exp1, exp2], timeout: 0.2)
     }
 
     func testComposedGestureSecond() throws {
         let sut = TestGestureView10()
         let exp1 = sut.inspection.inspect { view in
             let simultaneousGesture = try view
+                .implicitAnyView()
                 .vStack()
                 .image(0)
                 .gesture(SimultaneousGesture<MagnificationGesture, RotationGesture>.self)
@@ -44,18 +49,20 @@ final class ComposedGestureExampleTests: XCTestCase {
             sut.publisher.send()
         }
         
-        let exp2 = sut.inspection.inspect { view in
+        let exp2 = sut.inspection.inspect(onReceive: sut.publisher) { view in
             XCTAssertEqual(try view.actualView().angle, Angle(degrees: 5))
         }
 
         ViewHosting.host(view: sut)
-        wait(for: [exp1, exp2], timeout: 0.1)
+        defer { ViewHosting.expel() }
+        wait(for: [exp1, exp2], timeout: 0.2)
     }
-    
+
     func testComposedGestureAltFirst() throws {
         let sut = TestGestureView11()
         let exp1 = sut.inspection.inspect { view in
             let simultaneousGesture = try view
+                .implicitAnyView()
                 .vStack()
                 .image(0)
                 .gesture(SimultaneousGesture<MagnificationGesture, RotationGesture>.self)
@@ -66,27 +73,29 @@ final class ComposedGestureExampleTests: XCTestCase {
             sut.publisher.send()
         }
         
-        let exp2 = sut.inspection.inspect { view in
+        let exp2 = sut.inspection.inspect(onReceive: sut.publisher) { view in
             XCTAssertEqual(try view.actualView().scale, 2.0)
         }
 
         ViewHosting.host(view: sut)
-        wait(for: [exp1, exp2], timeout: 0.1)
+        defer { ViewHosting.expel() }
+        wait(for: [exp1, exp2], timeout: 0.2)
     }
     
     func testNotAComposedGestureError() throws {
         guard #available(iOS 14.0, tvOS 16.0, *) else { throw XCTSkip() }
         let sut = TestGestureView1()
-        let rectangle = try sut.inspect().shape()
+        let rectangle = try sut.inspect().implicitAnyView().shape()
         let tapGesture = try rectangle.gesture(TapGesture.self)
         XCTAssertThrows(try tapGesture.first(MagnificationGesture.self),
             "Type mismatch: TapGesture is not ExclusiveGesture, SequenceGesture, or SimultaneousGesture")
     }
-    
+
     func testComposedGestureComplex() throws {
         let sut = TestGestureView12()
         let exp = sut.inspection.inspect { view in
             let outerSimultaneousGesture = try view
+                .implicitAnyView()
                 .vStack()
                 .image(0)
                 .gesture(
@@ -100,7 +109,8 @@ final class ComposedGestureExampleTests: XCTestCase {
         }
 
         ViewHosting.host(view: sut)
-        wait(for: [exp], timeout: 0.1)
+        defer { ViewHosting.expel() }
+        wait(for: [exp], timeout: 0.2)
     }
 }
 
@@ -196,3 +206,4 @@ struct TestGestureView12: View {
         .onReceive(publisher) { }
     }
 }
+#endif

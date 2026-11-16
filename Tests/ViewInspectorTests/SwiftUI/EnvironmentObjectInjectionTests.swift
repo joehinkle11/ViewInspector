@@ -6,6 +6,7 @@ import SwiftUI
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 class EnvironmentObjectInjectionTests: XCTestCase {
     
+    @MainActor
     func testEnvironmentObjectMemoryLayout() throws {
         typealias RealType = EnvironmentObject<TestEnvObject1>
         XCTAssertEqual(MemoryLayout<RealType>.size, EnvObject.structSize)
@@ -28,6 +29,7 @@ class EnvironmentObjectInjectionTests: XCTestCase {
         XCTAssertEqual(store?.value1, obj.value1)
     }
     
+    @MainActor
     func testDirectEnvironmentObjectInjection() throws {
         let obj1 = TestEnvObject1()
         let obj2 = TestEnvObject2()
@@ -37,6 +39,7 @@ class EnvironmentObjectInjectionTests: XCTestCase {
         XCTAssertEqual(try sut.inspect().find(ViewType.Text.self).string(), "env_true")
     }
     
+    @MainActor
     func testEnvironmentObjectInjectionDuringSyncInspection() throws {
         let obj1 = TestEnvObject1()
         let obj2 = TestEnvObject2()
@@ -49,6 +52,7 @@ class EnvironmentObjectInjectionTests: XCTestCase {
         XCTAssertEqual(try sut.inspect().findAll(ViewType.Text.self).first?.string(), "env_false")
     }
     
+    @MainActor
     func testEnvironmentObjectInjectionOnDidAppearInspection() throws {
         let obj1 = TestEnvObject1()
         let obj2 = TestEnvObject2()
@@ -59,9 +63,11 @@ class EnvironmentObjectInjectionTests: XCTestCase {
             XCTAssertNoThrow(try view.find(text: "env_false"))
         }
         ViewHosting.host(view: sut.environmentObject(obj1).environmentObject(obj2))
+        defer { ViewHosting.expel() }
         wait(for: [exp], timeout: 0.5)
     }
     
+    @MainActor
     func testEnvironmentObjectInjectionDuringAsyncInspection() throws {
         let obj1 = TestEnvObject1()
         let obj2 = TestEnvObject2()
@@ -77,9 +83,11 @@ class EnvironmentObjectInjectionTests: XCTestCase {
             XCTAssertNoThrow(try view.find(text: "env_true"))
         }
         ViewHosting.host(view: sut.environmentObject(obj1).environmentObject(obj2))
+        defer { ViewHosting.expel() }
         wait(for: [exp1, exp2], timeout: 0.5)
     }
     
+    @MainActor
     func testMissingEnvironmentObjectErrorForView() throws {
         var sut = EnvironmentObjectInnerView()
         XCTAssertThrows(try sut.inspect().find(ViewType.Text.self),

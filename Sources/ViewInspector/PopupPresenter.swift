@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public protocol BasePopupPresenter {
     func buildPopup() throws -> Any
@@ -11,6 +12,7 @@ public protocol BasePopupPresenter {
     var isSheetPresenter: Bool { get }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public protocol PopupPresenter: BasePopupPresenter {
     associatedtype Popup
@@ -19,6 +21,7 @@ public protocol PopupPresenter: BasePopupPresenter {
     var onDismiss: (() -> Void)? { get }
 }
 
+@MainActor
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public protocol ItemPopupPresenter: BasePopupPresenter {
     associatedtype Popup
@@ -99,17 +102,20 @@ public extension ItemPopupPresenter where Popup == ActionSheet {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension ViewModifier where Self: BasePopupPresenter {
+    @MainActor
     func content() throws -> ViewInspector.Content {
         let view = body(content: _ViewModifier_Content())
-        return try view.inspect().viewModifierContent().content
+        return try view.inspect().implicitAnyView().viewModifierContent().content
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension ViewModifier where Self: PopupPresenter {
+    @MainActor
     var isPopoverPresenter: Bool {
         return (try? content().standardPopoverModifier()) != nil
     }
+    @MainActor
     var isSheetPresenter: Bool {
         return (try? content().standardSheetModifier()) != nil
     }
@@ -117,9 +123,11 @@ public extension ViewModifier where Self: PopupPresenter {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension ViewModifier where Self: ItemPopupPresenter {
+    @MainActor
     var isPopoverPresenter: Bool {
         return (try? content().standardPopoverModifier()) != nil
     }
+    @MainActor
     var isSheetPresenter: Bool {
         return (try? content().standardSheetModifier()) != nil
     }
@@ -148,7 +156,7 @@ internal extension ViewType {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewType {
-    static var popupContainerTypePrefix = "ViewInspector.ViewType.PopupContainer"
+    static let popupContainerTypePrefix = "ViewInspector.ViewType.PopupContainer"
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -159,6 +167,9 @@ internal extension ViewType.PopupContainer {
     }
 }
 
+#if swift(>=6.0)
+@MainActor
+#endif
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension Content {
     func popup<Popup: KnownViewType>(
@@ -172,27 +183,48 @@ internal extension Content {
                 type: BasePopupPresenter.self, call: "", index: index ?? 0)
         else {
             _ = try standardPredicate(name)
-            throw InspectionError.notSupported(
-                """
-                Please refer to the Guide for inspecting the \(name): \
-                https://github.com/nalexn/ViewInspector/blob/master/guide_popups.md#\(name.lowercased())
-                """)
+            throw popupNotSupportedError(name)
         }
-        let popup: Any = try {
-            do {
-                return try popupPresenter.buildPopup()
-            } catch {
-                if case InspectionError.viewNotFound = error {
-                    throw InspectionError.viewNotFound(parent: name)
-                }
-                throw error
-            }
-        }()
+        return try popup(parent: parent, index: index, name: name, popupPresenter: popupPresenter)
+    }
+
+    func popup<Popup: KnownViewType>(
+        parent: UnwrappedView, index: Int?,
+        name: String = Inspector.typeName(type: Popup.self),
+        popupPresenter: BasePopupPresenter
+    ) throws -> InspectableView<Popup> {
+        #if swift(>=6.0)
+        let popup = try build(popupPresenter: popupPresenter, name: name)
+        #else
+        let popup: Any = try MainActor.assumeIsolated {
+            return try build(popupPresenter: popupPresenter, name: name)
+        }
+        #endif
         let container = ViewType.PopupContainer<Popup>(popup: popup, presenter: popupPresenter)
         let medium = self.medium.resettingViewModifiers()
         let content = Content(container, medium: medium)
         let call = ViewType.inspectionCall(
             base: Popup.inspectionCall(typeName: name), index: index)
         return try .init(content, parent: parent, call: call, index: index)
+    }
+
+    func popupNotSupportedError(_ name: String) -> InspectionError {
+        return .notSupported(
+            """
+            Please refer to the Guide for inspecting the \(name): \
+            https://github.com/nalexn/ViewInspector/blob/master/guide_popups.md#\(name.lowercased())
+            """)
+    }
+
+    @MainActor
+    private func build(popupPresenter: any BasePopupPresenter, name: String) throws -> Any {
+        do {
+            return try popupPresenter.buildPopup()
+        } catch {
+            if case InspectionError.viewNotFound = error {
+                throw InspectionError.viewNotFound(parent: name)
+            }
+            throw error
+        }
     }
 }

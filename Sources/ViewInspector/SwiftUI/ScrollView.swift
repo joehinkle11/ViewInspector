@@ -4,7 +4,7 @@ import SwiftUI
 public extension ViewType {
     
     struct ScrollView: KnownViewType {
-        public static var typePrefix: String = "ScrollView"
+        public static let typePrefix: String = "ScrollView"
     }
 }
 

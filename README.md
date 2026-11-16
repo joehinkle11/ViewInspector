@@ -2,7 +2,7 @@
 
 <span align="center">
   
-![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS-lightgrey) [![Build Status](https://travis-ci.com/nalexn/ViewInspector.svg?branch=master)](https://travis-ci.com/nalexn/ViewInspector) [![codecov](https://codecov.io/gh/nalexn/ViewInspector/branch/master/graph/badge.svg)](https://codecov.io/gh/nalexn/ViewInspector)
+![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS%20%7C%20visionOS-lightgrey) [![codecov](https://codecov.io/gh/nalexn/ViewInspector/branch/master/graph/badge.svg)](https://codecov.io/gh/nalexn/ViewInspector)
 
 </span>
 
@@ -11,7 +11,7 @@ It allows for traversing a view hierarchy at runtime providing direct access to 
 
 ## Why?
 
-SwiftUI view is a function of state. We could provide it with the input, but were unable to verify the output... Until now!
+SwiftUI view is a function of state. We could provide it with the input but could not verify the output... Until now!
 
 ## Helpful links
 
@@ -61,7 +61,7 @@ The library can operate with various types of the view's state, such as `@Bindin
 
 ### 4. Trigger side effects
 
-You can simulate user interaction by programmatically triggering system-controls callbacks:
+You can simulate user interaction by programmatically triggering system-control callbacks:
 
 ```swift
 try sut.inspect().find(button: "Close").tap()
@@ -76,11 +76,11 @@ The library provides helpers for writing asynchronous tests for views with callb
 
 ### Which views and modifiers are supported?
 
-Check out the [API coverage](readiness.md). There is currently almost full support for SwiftUI v1 API, the v2 and v3 support is under active development.
+Check out the [API coverage](readiness.md).
 
 ### Is it using private APIs?
 
-**ViewInspector** is using official Swift reflection API to dissect the view structures. So it'll be production-friendly even if you could somehow ship the test target to the production.
+**ViewInspector** is using the official Swift reflection API to dissect the view structures. So it'll be production-friendly even if you could somehow ship the test target to the production.
 
 ### How do I add it to my Xcode project?
 
@@ -102,10 +102,6 @@ Assure you're adding the framework to your unit-test target. **Do NOT** add it t
 
 Please refer to the [Inspection guide](guide.md). You can also check out my other [project](https://github.com/nalexn/clean-architecture-swiftui) that harnesses the **ViewInspector** for testing the entire UI.
 
-### Other questions, concerns or suggestions?
+### Contributions
 
-Ping me on [Twitter](https://twitter.com/nallexn) or just submit an issue or a pull request on Github.
-
----
-
-[![blog](https://img.shields.io/badge/blog-github-blue)](https://nalexn.github.io/?utm_source=nalexn_github) [![venmo](https://img.shields.io/badge/%F0%9F%8D%BA-Venmo-brightgreen)](https://venmo.com/nallexn)
+Contributions are welcomed! If you see an unsupported view or modifier, you can either open an issue (so I could prioritize such SwiftUI APIs over the rest), or try to crack it yourself: use the `print("\(Inspector.print(<#view#>) as AnyObject)")` as the starting point of the investigation.
