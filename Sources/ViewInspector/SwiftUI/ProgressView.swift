@@ -58,6 +58,11 @@ extension ViewType.ProgressView: SupplementaryChildren {
 public extension InspectableView where View == ViewType.ProgressView {
     
     func fractionCompleted() throws -> Double? {
+        do {
+            return try Inspector
+                .attribute(path: "base|custom|value|absolute|fractionCompleted",
+                           value: content.view, type: Double?.self)
+        } catch { }
         return try Inspector
             .attribute(path: "base|custom|fractionCompleted", value: content.view, type: Double?.self)
     }
@@ -99,7 +104,7 @@ public extension InspectableView {
 
 // MARK: - ProgressViewStyle inspection
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 public extension ProgressViewStyle {
     func inspect(fractionCompleted: Double? = nil) throws -> InspectableView<ViewType.ClassifiedView> {
         let config = ProgressViewStyleConfiguration(fractionCompleted: fractionCompleted)
@@ -110,13 +115,26 @@ public extension ProgressViewStyle {
 
 // MARK: - Style Configuration initializer
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 internal extension ProgressViewStyleConfiguration {
-    private struct Allocator {
+    private struct Allocator12 {
         let fractionCompleted: Double?
         let data: Int16 = 0
     }
+    private struct Allocator36 {
+        let head: (UInt64?, UInt32) = (nil, 0)
+        let alwaysIndeterminate: Bool = false
+        let fractionCompleted: Double?
+        let tail: (Bool, Bool, Bool) = (false, false, false)
+    }
     init(fractionCompleted: Double?) {
-        self = unsafeBitCast(Allocator(fractionCompleted: fractionCompleted), to: Self.self)
+        switch MemoryLayout<Self>.size {
+        case 12:
+            self = unsafeBitCast(Allocator12(fractionCompleted: fractionCompleted), to: Self.self)
+        case 36:
+            self = unsafeBitCast(Allocator36(fractionCompleted: fractionCompleted), to: Self.self)
+        default:
+            fatalError(MemoryLayout<Self>.actualSize())
+        }
     }
 }

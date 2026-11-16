@@ -4,7 +4,7 @@ import SwiftUI
 
 @testable import ViewInspector
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
 final class CustomViewTests: XCTestCase {
     
     func testLocalStateChanges() throws {
@@ -49,11 +49,56 @@ final class CustomViewTests: XCTestCase {
         let view = EnvironmentStateTestView().environmentObject(viewModel)
         XCTAssertNoThrow(try view.inspect().view(EnvironmentStateTestView.self))
     }
+
+    func testEnvironmentObjectActualView() throws {
+        let viewModel = ExternalState()
+        let view = EnvironmentStateTestView().environmentObject(viewModel)
+        _ = try view.inspect().view(EnvironmentStateTestView.self)
+            .actualView().viewModel
+    }
     
     func testResetsModifiers() throws {
         let view = SimpleTestView().padding()
         let sut = try view.inspect().view(SimpleTestView.self).emptyView()
         XCTAssertEqual(sut.content.medium.viewModifiers.count, 0)
+    }
+    
+    func testImplicitChildUnwrapping() throws {
+        let sut = SimpleTestView()
+        let implicit = try sut.inspect()
+            .emptyView().pathToRoot
+        let explicit = try sut.inspect()
+            .view(SimpleTestView.self)
+            .emptyView().pathToRoot
+        XCTAssertEqual(implicit, "view(SimpleTestView.self).emptyView()")
+        XCTAssertEqual(explicit, "view(SimpleTestView.self).emptyView()")
+    }
+    
+    func testCustomViewAPIMisuseError() throws {
+        let sut = try SimpleTestView().inspect().view(SimpleTestView.self)
+        XCTAssertNoThrow(try sut.emptyView())
+        XCTAssertNoThrow(try sut.emptyView(0))
+        XCTAssertNoThrow(try sut.find(ViewType.EmptyView.self))
+        XCTAssertThrows(try sut.find(EmptyView.self),
+            """
+            Please use .find(ViewType.EmptyView.self) instead \
+            of .find(EmptyView.self) inspection call.
+            """)
+        XCTAssertThrows(try sut.find(EmptyView.self, containing: "abc"),
+            """
+            Please use .find(ViewType.EmptyView.self) instead \
+            of .find(EmptyView.self) inspection call.
+            """)
+        XCTAssertThrows(try sut.view(EmptyView.self),
+            """
+            Please replace .view(EmptyView.self) inspection call \
+            with .emptyView() or .find(ViewType.EmptyView.self)
+            """)
+        XCTAssertThrows(try sut.view(EmptyView.self, 0),
+            """
+            Please replace .view(EmptyView.self, 0) inspection \
+            call with .emptyView(0)
+            """)
     }
     
     func testEnvViewResetsModifiers() throws {
@@ -66,6 +111,7 @@ final class CustomViewTests: XCTestCase {
         wait(for: [exp], timeout: 0.1)
     }
     
+    @available(watchOS, deprecated: 7.0)
     func testExtractionOfTestViewRepresentable() throws {
         let view = AnyView(TestViewRepresentable())
         let sut = try view.inspect().anyView().view(TestViewRepresentable.self)
@@ -73,22 +119,42 @@ final class CustomViewTests: XCTestCase {
         #if os(macOS)
         XCTAssertThrows(try sut.hStack(),
         "Please use `.actualView().nsView()` for inspecting the contents of NSViewRepresentable")
+        // Needs view hosting:
+        XCTAssertThrows(try sut.actualView().nsView(),
+                        "View for TestViewRepresentable is absent")
+        #elseif os(watchOS)
+        XCTAssertThrows(try sut.hStack(),
+        "Please use `.actualView().interfaceObject()` for inspecting the contents of WKInterfaceObjectRepresentable")
+        // Needs view hosting:
+        XCTAssertThrows(try sut.actualView().interfaceObject(),
+                        "View for TestViewRepresentable is absent")
         #else
         XCTAssertThrows(try sut.hStack(),
         "Please use `.actualView().uiView()` for inspecting the contents of UIViewRepresentable")
+        // Needs view hosting:
+        XCTAssertThrows(try sut.actualView().uiView(),
+                        "View for TestViewRepresentable is absent")
         #endif
     }
     
     func testExtractionOfViewControllerRepresentable() throws {
+        #if !os(watchOS)
         let view = AnyView(TestViewControllerRepresentable())
         let sut = try view.inspect().anyView().view(TestViewControllerRepresentable.self)
         XCTAssertNoThrow(try sut.actualView())
         #if os(macOS)
         XCTAssertThrows(try sut.hStack(),
         "Please use `.actualView().viewController()` for inspecting the contents of NSViewControllerRepresentable")
+        // Needs view hosting:
+        XCTAssertThrows(try sut.actualView().viewController(),
+                        "View for TestViewControllerRepresentable is absent")
         #else
         XCTAssertThrows(try sut.hStack(),
         "Please use `.actualView().viewController()` for inspecting the contents of UIViewControllerRepresentable")
+        // Needs view hosting:
+        XCTAssertThrows(try sut.actualView().viewController(),
+                        "View for TestViewControllerRepresentable is absent")
+        #endif
         #endif
     }
     
@@ -137,13 +203,6 @@ final class CustomViewTests: XCTestCase {
         wait(for: [exp], timeout: 0.1)
     }
     
-    func testSearchBlocker() throws {
-        let sut = AnyView(NonInspectableTestView())
-        XCTAssertThrows(try sut.inspect().find(ViewType.EmptyView.self),
-                        "Search did not find a match. Possible blockers: NonInspectableTestView")
-        XCTAssertEqual(try sut.inspect().findAll(ViewType.EmptyView.self).count, 0)
-    }
-    
     func testActualView() throws {
         let sut = LocalStateTestView(flag: true)
         let exp = sut.inspection.inspect { view in
@@ -171,8 +230,36 @@ final class CustomViewTests: XCTestCase {
         XCTAssertEqual(sut2, "hStack().view(SimpleTestView.self, 0)")
     }
     
+    func testViewsWithSameNamePrefix() throws {
+        let sut = try AnyView(NameMatchViewList()).inspect()
+        XCTAssertEqual(try sut.find(NameMatchViewList.self).pathToRoot,
+                       "anyView().view(NameMatchViewList.self)")
+        XCTAssertEqual(try sut.find(NameMatchView.self).pathToRoot,
+                       "anyView().view(NameMatchViewList.self).forEach().view(NameMatchView.self, 0)")
+    }
+    
+    func testViewContainerWithGenericParameter() throws {
+        let sut = try AnyView(GenericContainer<String>()).inspect()
+        XCTAssertEqual(try sut.find(GenericContainer<String>.self).pathToRoot,
+                       "anyView().view(GenericContainer<EmptyView>.self)")
+        XCTAssertEqual(try sut.find(GenericContainer<String>.TestView.self).pathToRoot,
+            "anyView().view(GenericContainer<EmptyView>.self).view(TestView.self)")
+    }
+    
+    func testViewContainerGenericParameterMismatch() throws {
+        let sut = try AnyView(GenericContainer<String>()).inspect()
+        let view = try sut.find(GenericContainer<Int>.TestView.self)
+        let namespace = String(reflecting: GenericContainer<Int>.self)
+            .components(separatedBy: ".").first!
+        let prefix = namespace + ".GenericContainer"
+        XCTAssertThrows(try view.actualView(),
+            """
+            Type mismatch: \(prefix)<Swift.String>.TestView \
+            is not \(prefix)<Swift.Int>.TestView
+            """)
+    }
+    
     func testTestViews() {
-        XCTAssertNoThrow(NonInspectableTestView().body)
         XCTAssertNoThrow(SimpleTestView().body)
         XCTAssertNoThrow(ObservedStateTestView(viewModel: ExternalState()).body)
     }
@@ -181,21 +268,14 @@ final class CustomViewTests: XCTestCase {
 // MARK: - Test Views
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct NonInspectableTestView: View {
+private struct SimpleTestView: View {
     var body: some View {
         EmptyView()
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct SimpleTestView: View, Inspectable {
-    var body: some View {
-        EmptyView()
-    }
-}
-
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct LocalStateTestView: View, Inspectable {
+private struct LocalStateTestView: View {
     
     @State private(set) var flag: Bool
     let inspection = Inspection<Self>()
@@ -209,7 +289,7 @@ private struct LocalStateTestView: View, Inspectable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct ObservedStateTestView: View, Inspectable {
+private struct ObservedStateTestView: View {
     
     @ObservedObject var viewModel: ExternalState
     
@@ -219,7 +299,7 @@ private struct ObservedStateTestView: View, Inspectable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct EnvironmentStateTestView: View, Inspectable {
+private struct EnvironmentStateTestView: View {
     
     @EnvironmentObject var viewModel: ExternalState
     let inspection = Inspection<Self>()
@@ -231,7 +311,7 @@ private struct EnvironmentStateTestView: View, Inspectable {
 }
 
 #if os(macOS)
-private struct TestViewRepresentable: NSViewRepresentable, Inspectable {
+private struct TestViewRepresentable: NSViewRepresentable {
     
     func makeNSView(context: NSViewRepresentableContext<Self>) -> NSView {
         let view = NSView()
@@ -244,7 +324,7 @@ private struct TestViewRepresentable: NSViewRepresentable, Inspectable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestViewControllerRepresentable: NSViewControllerRepresentable, Inspectable {
+private struct TestViewControllerRepresentable: NSViewControllerRepresentable {
     
     func makeNSViewController(context: Context) -> NSViewController {
         let vc = NSViewController()
@@ -255,9 +335,9 @@ private struct TestViewControllerRepresentable: NSViewControllerRepresentable, I
     func updateNSViewController(_ uiViewController: NSViewControllerType, context: Context) {
     }
 }
-#else
+#elseif os(iOS) || os(tvOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestViewRepresentable: UIViewRepresentable, Inspectable {
+private struct TestViewRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -270,7 +350,7 @@ private struct TestViewRepresentable: UIViewRepresentable, Inspectable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestViewControllerRepresentable: UIViewControllerRepresentable, Inspectable {
+private struct TestViewControllerRepresentable: UIViewControllerRepresentable {
     
     func makeUIViewController(context: Context) -> UIViewController {
         let vc = UIViewController()
@@ -281,6 +361,20 @@ private struct TestViewControllerRepresentable: UIViewControllerRepresentable, I
     func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
     }
 }
+#elseif os(watchOS)
+
+@available(watchOS, deprecated: 7.0)
+private struct TestViewRepresentable: WKInterfaceObjectRepresentable {
+    
+    typealias Context = WKInterfaceObjectRepresentableContext<TestViewRepresentable>
+    func makeWKInterfaceObject(context: Context) -> some WKInterfaceObject {
+        return WKInterfaceMap()
+    }
+
+    func updateWKInterfaceObject(_ wkInterfaceObject: WKInterfaceObjectType, context: Context) {
+    }
+}
+
 #endif
 
 // MARK: - Misc
@@ -313,8 +407,38 @@ extension EnvironmentValues {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension ViewType {
-    struct Test<T>: KnownViewType, CustomViewType where T: Inspectable {
+    struct Test<T>: KnownViewType, CustomViewType {
         public static var typePrefix: String { "String" }
         static var namespacedPrefixes: [String] { ["Swift.String"] }
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private struct NameMatchView: View {
+    var body: some View {
+        Text("")
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private struct NameMatchViewList: View {
+    var body: some View {
+        ForEach(0..<5) { _ in NameMatchView() }
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private struct GenericContainer<T>: View {
+    var body: some View {
+        TestView()
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private extension GenericContainer {
+    struct TestView: View {
+        var body: some View {
+            Text("")
+        }
     }
 }

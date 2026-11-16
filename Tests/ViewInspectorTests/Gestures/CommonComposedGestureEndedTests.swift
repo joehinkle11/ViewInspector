@@ -7,7 +7,8 @@ import Combine
 
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
-final class CommonComposedGestureEndedTests<U: Gesture & Inspectable> {
+@available(watchOS, unavailable)
+final class CommonComposedGestureEndedTests<U: Gesture> {
 
     let testCase: XCTestCase
     let type: U.Type
@@ -30,7 +31,7 @@ final class CommonComposedGestureEndedTests<U: Gesture & Inspectable> {
         (_EndedGesture<MagnificationGesture>,
          _EndedGesture<RotationGesture>) -> T
 
-    func callEndedTest<T: Gesture & Inspectable>(
+    func callEndedTest<T: Gesture>(
         _ order: InspectableView<ViewType.Gesture<T>>.GestureOrder,
         file: StaticString = #filePath, line: UInt = #line,
         _ factory: ComposedGestureEnded<T>) throws {
@@ -62,7 +63,7 @@ final class CommonComposedGestureEndedTests<U: Gesture & Inspectable> {
         (_EndedGesture<_ChangedGesture<MagnificationGesture>>,
          _EndedGesture<_ChangedGesture<RotationGesture>>) -> T
 
-    func callEndedNotFirstTest<T: Gesture & Inspectable>(
+    func callEndedNotFirstTest<T: Gesture> (
         _ order: InspectableView<ViewType.Gesture<T>>.GestureOrder,
         file: StaticString = #filePath, line: UInt = #line,
         _ factory: ComposedGestureEndedNotFirst<T>) throws {
@@ -96,7 +97,7 @@ final class CommonComposedGestureEndedTests<U: Gesture & Inspectable> {
         (_EndedGesture<_EndedGesture<MagnificationGesture>>,
          _EndedGesture<_EndedGesture<RotationGesture>>) -> T
 
-    func callEndedMultipleTest<T: Gesture & Inspectable>(
+    func callEndedMultipleTest<T: Gesture>(
         _ order: InspectableView<ViewType.Gesture<T>>.GestureOrder,
         file: StaticString = #filePath, line: UInt = #line,
         _ factory: ComposedGestureEndedMultiple<T>) throws {
@@ -133,7 +134,7 @@ final class CommonComposedGestureEndedTests<U: Gesture & Inspectable> {
         testCase.wait(for: [exp1, exp2], timeout: 0.1)
     }
 
-    func callEndedFailureTest<T: Gesture & Inspectable>(
+    func callEndedFailureTest<T: Gesture>(
         _ order: InspectableView<ViewType.Gesture<T>>.GestureOrder,
         file: StaticString = #filePath, line: UInt = #line,
         _ factory: (MagnificationGesture, RotationGesture) -> T) throws {

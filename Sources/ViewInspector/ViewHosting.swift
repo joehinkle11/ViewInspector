@@ -1,15 +1,18 @@
 import SwiftUI
+import Combine
 #if canImport(UIKit)
 import UIKit
 #endif
 
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public struct ViewHosting { }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public extension ViewHosting {
     
     struct ViewId: Hashable {
         let function: String
+        var key: String { function }
     }
     
     static func host<V>(view: V, size: CGSize? = nil, function: String = #function) where V: View {
@@ -22,6 +25,18 @@ public extension ViewHosting {
             }
             return unwrapped.medium
         }()
+        #if os(watchOS)
+        do {
+            store(Hosted(medium: medium), viewId: viewId)
+            try watchOS(host: AnyView(view), viewId: viewId)
+        } catch {
+            fatalError(error.localizedDescription)
+            /*
+             If you're running ViewInspector's tests on watchOS, launch them
+             from another Xcode project at ".watchOS/watchOS.xcodeproj"
+             */
+        }
+        #else
         let parentVC = rootViewController
         let childVC = hostVC(view)
         let size = size ?? parentVC.view.bounds.size
@@ -39,17 +54,43 @@ public extension ViewHosting {
         ])
         didMove(childVC, to: parentVC)
         window.layoutIfNeeded()
+        #endif
     }
     
     static func expel(function: String = #function) {
         let viewId = ViewId(function: function)
+        #if os(watchOS)
+        _ = expel(viewId: viewId)
+        try? watchOS(host: nil, viewId: viewId)
+        #else
         guard let hosted = expel(viewId: viewId) else { return }
         let childVC = hosted.viewController
         willMove(childVC, to: nil)
         childVC.view.removeFromSuperview()
         childVC.removeFromParent()
         didMove(childVC, to: nil)
+        #endif
     }
+    
+    #if os(watchOS)
+    private static func watchOS(host view: AnyView?, viewId: ViewId) throws {
+        typealias Subject = CurrentValueSubject<[(String, AnyView)], Never>
+        guard let subject: Subject = try subjectForWatchOS(type: Subject.self) else {
+            throw InspectionError.notSupported(
+                """
+                View hosting for watchOS is not set up. Please follow this guide: \
+                https://github.com/nalexn/ViewInspector/blob/master/guide_watchOS.md
+                """)
+        }
+        var array = subject.value
+        if let view = view {
+            array.append((viewId.key, view))
+        } else if let index = array.firstIndex(where: { $0.0 == viewId.key }) {
+            array.remove(at: index)
+        }
+        subject.send(array)
+    }
+    #endif
     
     internal static func medium(function: String = #function) -> Content.Medium {
         let viewId = ViewHosting.ViewId(function: function)
@@ -65,7 +106,7 @@ private extension ViewHosting {
     struct Hosted {
         #if os(macOS)
         let viewController: NSViewController
-        #else
+        #elseif os(iOS) || os(tvOS)
         let viewController: UIViewController
         #endif
         let medium: Content.Medium
@@ -73,7 +114,7 @@ private extension ViewHosting {
     private static var hosted: [ViewId: Hosted] = [:]
     #if os(macOS)
     static var window: NSWindow = makeWindow()
-    #else
+    #elseif os(iOS) || os(tvOS)
     static var window: UIWindow = makeWindow()
     #endif
     
@@ -91,7 +132,7 @@ private extension ViewHosting {
         window.layoutIfNeeded()
         return window
     }
-    #else
+    #elseif os(iOS) || os(tvOS)
     static func makeWindow() -> UIWindow {
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController()
@@ -111,7 +152,7 @@ private extension ViewHosting {
     static func hostVC<V>(_ view: V) -> NSHostingController<V> where V: View {
         NSHostingController(rootView: view)
     }
-    #else
+    #elseif os(iOS) || os(tvOS)
     static var rootViewController: UIViewController {
         window.rootViewController!
     }
@@ -127,7 +168,7 @@ private extension ViewHosting {
     }
     static func didMove(_ child: NSViewController, to parent: NSViewController?) {
     }
-    #else
+    #elseif os(iOS) || os(tvOS)
     static func willMove(_ child: UIViewController, to parent: UIViewController?) {
         child.willMove(toParent: parent)
     }
@@ -147,6 +188,7 @@ private extension ViewHosting {
     }
 }
 
+#if !os(watchOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension NSLayoutConstraint {
     #if os(macOS)
@@ -161,6 +203,7 @@ private extension NSLayoutConstraint {
     }
     #endif
 }
+#endif
 
 // MARK: - RootViewController for macOS
 
@@ -184,11 +227,11 @@ private class RootViewController: NSViewController {
 
 // MARK: - UIView lookup
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
 internal extension ViewHosting {
     #if os(macOS)
     static func lookup<V>(_ view: V.Type) throws -> V.NSViewType
-        where V: Inspectable & NSViewRepresentable {
+        where V: NSViewRepresentable {
             let name = Inspector.typeName(type: view)
             let viewHost = rootViewController.view.descendant(nameTraits: ["ViewHost", name])
             guard let view = viewHost?.subviews.compactMap({ $0 as? V.NSViewType }).first else {
@@ -198,7 +241,7 @@ internal extension ViewHosting {
     }
     
     static func lookup<V>(_ viewController: V.Type) throws -> V.NSViewControllerType
-        where V: Inspectable & NSViewControllerRepresentable {
+        where V: NSViewControllerRepresentable {
             let name = Inspector.typeName(type: viewController)
             let hostVC = rootViewController.descendant(nameTraits: ["NSHostingController", name])
             if let vc = hostVC?.descendants.compactMap({ $0 as? V.NSViewControllerType }).first {
@@ -210,9 +253,9 @@ internal extension ViewHosting {
             else { throw InspectionError.viewNotFound(parent: name) }
             return vc
     }
-    #else
+    #elseif os(iOS) || os(tvOS)
     static func lookup<V>(_ view: V.Type) throws -> V.UIViewType
-        where V: Inspectable & UIViewRepresentable {
+        where V: UIViewRepresentable {
             let name = Inspector.typeName(type: view)
             let viewHost = window.descendant(nameTraits: ["ViewHost", name])
             guard let view = viewHost?.subviews.compactMap({ $0 as? V.UIViewType }).first else {
@@ -222,15 +265,46 @@ internal extension ViewHosting {
     }
     
     static func lookup<V>(_ viewController: V.Type) throws -> V.UIViewControllerType
-        where V: Inspectable & UIViewControllerRepresentable {
+        where V: UIViewControllerRepresentable {
             let name = Inspector.typeName(type: viewController)
             let hostVC = window.rootViewController?.descendant(nameTraits: ["UIHostingController", name])
             guard let vc = hostVC?.descendants.compactMap({ $0 as? V.UIViewControllerType })
                 .first else { throw InspectionError.viewNotFound(parent: name) }
             return vc
     }
+    #elseif os(watchOS)
+    static func lookup<V>(_ view: V.Type) throws -> V.WKInterfaceObjectType
+        where V: WKInterfaceObjectRepresentable {
+            let name = Inspector.typeName(type: view)
+            guard let rootVC = rootInterfaceController,
+                  let viewCache = try? Inspector.attribute(path: """
+                  super|$__lazy_storage_$_hostingController|some|\
+                  host|renderer|renderer|some|viewCache|map
+                  """, value: rootVC, type: ArrayConvertible.self).allValues(),
+                  let object = viewCache.compactMap({ value in
+                      try? Inspector.attribute(
+                        path: "view|representedViewProvider",
+                        value: value, type: V.WKInterfaceObjectType.self)
+                  }).first
+            else {
+                throw InspectionError.viewNotFound(parent: name)
+            }
+            return object
+    }
     #endif
 }
+
+#if os(watchOS)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+internal protocol ArrayConvertible {
+    func allValues() -> [Any]
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+extension Dictionary: ArrayConvertible {
+    func allValues() -> [Any] { Array(values) as [Any] }
+}
+#endif
 
 #if os(macOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -263,7 +337,7 @@ private extension NSViewController {
         return presented + children
     }
 }
-#else
+#elseif os(iOS) || os(tvOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension UIView {
     func descendant(nameTraits: [String]) -> UIView? {
@@ -294,6 +368,46 @@ private extension UIViewController {
         let tabChildren = (self as? UITabBarController)?.viewControllers ?? []
         let presented = [presentedViewController].compactMap { $0 }
         return navChildren + tabChildren + presented + children
+    }
+}
+#endif
+
+#if os(watchOS)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
+public extension ViewHosting {
+    private static var rootInterfaceController: WKInterfaceController? {
+        if #available(watchOS 7.0, *) {
+            return (WKExtension.shared().delegate != nil)
+                    ? WKExtension.shared().rootInterfaceController : WKApplication.shared().rootInterfaceController
+        } else {
+            return WKExtension.shared().rootInterfaceController
+        }
+    }
+    
+    private static func subjectForWatchOS<T>(type: T.Type) throws -> T? {
+        if let extensionDelegate = WKExtension.shared().delegate,
+           let subject = try? Inspector
+            .attribute(path: "fallbackDelegate|some|extension|testViewSubject",
+                       value: extensionDelegate, type: type) {
+            return subject
+        }
+        
+        if #available(watchOS 7.0, *) {
+            if let applicationDelegate = WKApplication.shared().delegate,
+               let subject = try? Inspector
+                .attribute(path: "fallbackDelegate|some|application|testViewSubject",
+                           value: applicationDelegate, type: type) {
+                return subject
+            }
+        }
+        
+        if let rootIC = rootInterfaceController,
+           let subject = try? Inspector
+            .attribute(label: "testViewSubject", value: rootIC, type: type) {
+            return subject
+        }
+        
+        return nil
     }
 }
 #endif

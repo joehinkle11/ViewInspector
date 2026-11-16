@@ -91,8 +91,8 @@ final class TextTests: XCTestCase {
     }
     
     func testObjectInitialization() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 2
@@ -118,8 +118,8 @@ final class TextTests: XCTestCase {
     }
     
     func testReferenceConvertibleInitialization() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-mm-ss"
         let date = Date(timeIntervalSinceReferenceDate: 123)
@@ -138,8 +138,8 @@ final class TextTests: XCTestCase {
     }
     
     func testDateStyleInitialization() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let date = Date(timeIntervalSinceReferenceDate: 123)
         let sut = Text(date, style: .timer)
         XCTAssertThrows(try sut.inspect().text().string(),
@@ -147,8 +147,8 @@ final class TextTests: XCTestCase {
     }
     
     func testDateIntervalInitialization() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let date1 = Date(timeIntervalSinceReferenceDate: 123)
         let date2 = Date(timeIntervalSinceReferenceDate: 123456)
         let sut1 = Text(date1...date2)
@@ -161,16 +161,16 @@ final class TextTests: XCTestCase {
     }
     
     func testTextInterpolation() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let sut = Text("abc \(Text("xyz").bold()) \(Text("qwe"))")
         let value = try sut.inspect().text().string()
         XCTAssertEqual(value, "abc xyz qwe")
     }
     
     func testImageInterpolation() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let sut = Text("abc \(Image("test"))")
         let value = try sut.inspect().text().string()
         XCTAssertEqual(value, "abc Image('test')")
@@ -189,8 +189,8 @@ final class TextTests: XCTestCase {
     }
     
     func testImageExtraction() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let image1 = Image("abc").antialiased(true)
         let image2 = Image("def").resizable()
         let image3 = Image("xyz")
@@ -203,6 +203,50 @@ final class TextTests: XCTestCase {
         XCTAssertEqual(try sut2.inspect().text().images(), [])
         let sut3 = Text("abc")
         XCTAssertEqual(try sut3.inspect().text().images(), [])
+    }
+
+    func testAttributedStringTextStorage() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let aString = try AttributedString(markdown: "**Bold** Test [Link](https://example.com)")
+        let sut = Text("head ") + Text(aString) + Text(" tail")
+        XCTAssertEqual(try sut.inspect().text().string(), "head Bold Test Link tail")
+    }
+
+    // MARK: - attributedString()
+
+    func testAttributedStringValue() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let aString = try AttributedString(markdown: "**Bold** Test [Link](https://example.com)")
+        let sut = Text(aString)
+        let value = try sut.inspect().text().attributedString()
+        XCTAssertEqual(value, aString)
+    }
+
+    func testAttributedStringFoundString() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = Text("Test")
+        XCTAssertThrows(try sut.inspect().text().attributedString(),
+                        "Please use attributes() for accessing the text styles on this view")
+    }
+
+    // MARK: - FormatStyle
+
+    func testFormatStyle() throws {
+        guard #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = Text("Test \(1234, format: .number) and \(0.5678, format: .percent)")
+        XCTAssertEqual(try sut.inspect().text().string(), "Test 1,234 and 56.78%")
+    }
+
+    func testFormatStyleWithLocale() throws {
+        guard #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = Text("Test \(1234, format: .number) and \(0.5678, format: .percent)")
+        XCTAssertEqual(try sut.inspect().text().string(locale: .init(identifier: "de_DE")),
+                       "Test 1.234 and 56,78\u{a0}%")
     }
 }
 

@@ -33,6 +33,13 @@ public extension InspectableView {
         let keyPath = try Inspector.environmentKeyPath(Optional<Color>.self, reference)
         return try environment(keyPath, call: "accentColor")
     }
+
+    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+    func tint() throws -> Color? {
+        let reference = EmptyView().tint(nil)
+        let keyPath = try Inspector.environmentKeyPath(Optional<Color>.self, reference)
+        return try environment(keyPath, call: "tint")
+    }
     
     func colorScheme() throws -> ColorScheme {
         let reference = EmptyView().colorScheme(.light)
@@ -55,6 +62,15 @@ public extension InspectableView {
             modifierName: "_PreferenceWritingModifier<PreferredColorSchemeKey>",
             transitive: true,
             path: "modifier|value", type: Optional<ColorScheme>.self, call: "preferredColorScheme")
+    }
+
+    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+    func foregroundStyleShapeStyle<S>(_ style: S.Type) throws -> S where S: ShapeStyle {
+        let typeName = Inspector.typeName(type: S.self)
+        return try modifierAttribute(
+            modifierName: "_ForegroundStyleModifier<\(typeName)>",
+            transitive: false,
+            path: "modifier|style", type: S.self, call: "foregroundStyle")
     }
 }
 

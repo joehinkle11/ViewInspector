@@ -5,6 +5,7 @@ import Combine
 
 @available(iOS 13.0, macOS 11, *)
 @available(tvOS, unavailable)
+@available(watchOS, unavailable)
 final class ComposedGestureExampleTests: XCTestCase {
     
     func testComposedGestureFirst() throws {
@@ -74,9 +75,9 @@ final class ComposedGestureExampleTests: XCTestCase {
     }
     
     func testNotAComposedGestureError() throws {
-        guard #available(iOS 14.0, *) else { return }
+        guard #available(iOS 14.0, tvOS 16.0, *) else { throw XCTSkip() }
         let sut = TestGestureView1()
-        let rectangle = try sut.inspect().shape(0)
+        let rectangle = try sut.inspect().shape()
         let tapGesture = try rectangle.gesture(TapGesture.self)
         XCTAssertThrows(try tapGesture.first(MagnificationGesture.self),
             "Type mismatch: TapGesture is not ExclusiveGesture, SequenceGesture, or SimultaneousGesture")
@@ -105,7 +106,8 @@ final class ComposedGestureExampleTests: XCTestCase {
 
 @available(iOS 13.0, macOS 11, *)
 @available(tvOS, unavailable)
-struct TestGestureView10: View & Inspectable {
+@available(watchOS, unavailable)
+struct TestGestureView10: View {
     @State var scale: CGFloat = 1.0
     @State var angle = Angle(degrees: 0)
     
@@ -137,7 +139,8 @@ struct TestGestureView10: View & Inspectable {
 
 @available(iOS 13.0, macOS 11, *)
 @available(tvOS, unavailable)
-struct TestGestureView11: View & Inspectable {
+@available(watchOS, unavailable)
+struct TestGestureView11: View {
     @State var scale: CGFloat = 1.0
     @State var angle = Angle(degrees: 0)
     
@@ -168,7 +171,8 @@ struct TestGestureView11: View & Inspectable {
 
 @available(iOS 13.0, macOS 11, *)
 @available(tvOS, unavailable)
-struct TestGestureView12: View & Inspectable {
+@available(watchOS, unavailable)
+struct TestGestureView12: View {
     
     internal let inspection = Inspection<Self>()
     internal let publisher = PassthroughSubject<Void, Never>()

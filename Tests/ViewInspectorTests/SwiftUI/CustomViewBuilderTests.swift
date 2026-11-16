@@ -71,7 +71,7 @@ final class CustomViewBuilderTests: XCTestCase {
     
     func testActualView() throws {
         let sut = TestViewBuilderView { Text("Test") }
-        XCTAssertNoThrow(try sut.inspect().actualView().content)
+        XCTAssertNoThrow(try sut.inspect().view(TestViewBuilderView<Text>.self).actualView().content)
     }
     
     func testViewBody() {
@@ -82,8 +82,29 @@ final class CustomViewBuilderTests: XCTestCase {
         let view = HStack {
             TestViewBuilderView { Text("Test"); EmptyView() }
         }
-        let sut = try view.inspect().find(text: "Test").pathToRoot
-        XCTAssertEqual(sut, "hStack().view(TestViewBuilderView.self, 0).text(0)")
+        let sut = try view.inspect()
+        let path1 = try sut.find(text: "Test").pathToRoot
+        let path2 = try sut.hStack().view(TestViewBuilderView<EmptyView>.self, 0).text(0).pathToRoot
+        XCTAssertEqual(path1, "hStack().view(TestViewBuilderView<EmptyView>.self, 0).text(0)")
+        XCTAssertEqual(path2, "hStack().view(TestViewBuilderView<EmptyView>.self, 0).text(0)")
+    }
+    
+    func testLocalViewBuilder() throws {
+        struct ViewWrapper<V: View>: View {
+            @ViewBuilder var view: () -> V
+            init(@ViewBuilder view: @escaping () -> V) {
+                self.view = view
+            }
+            var body: some View {
+                view()
+            }
+        }
+        let view = ViewWrapper { ViewWrapper { Text("test") } }
+        let sut = try view.inspect()
+        XCTAssertNoThrow(try sut.find(ViewWrapper<ViewWrapper<Text>>.self))
+        XCTAssertNoThrow(try sut.find(ViewWrapper<Text>.self))
+        XCTAssertEqual(try sut.find(ViewType.Text.self).pathToRoot,
+                       "view(ViewWrapper<EmptyView>.self).view(ViewWrapper<EmptyView>.self).text()")
     }
 }
 
@@ -102,6 +123,3 @@ private struct TestViewBuilderView<Content: View>: View {
             .padding()
     }
 }
-
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-extension TestViewBuilderView: Inspectable { }

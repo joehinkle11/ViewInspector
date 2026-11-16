@@ -18,6 +18,16 @@ final class ModifiedContentTests: XCTestCase {
             .padding().padding()
         let sut = try view.inspect().text()
         XCTAssertEqual(sut.content.medium.viewModifiers.count, 5)
+        XCTAssertNoThrow(try sut.callOnAppear())
+    }
+    
+    func testEnvAccumulatesModifiers() throws {
+        let view = Text("Test")
+            .padding().modifier(TestEnvironmentalModifier())
+            .padding().padding()
+        let sut = try view.inspect().text()
+        XCTAssertEqual(sut.content.medium.viewModifiers.count, 5)
+        XCTAssertNoThrow(try sut.callOnAppear())
     }
     
     func testExtractionFromSingleViewContainer() throws {
@@ -34,18 +44,21 @@ final class ModifiedContentTests: XCTestCase {
         XCTAssertEqual(try view.inspect().hStack().text(1).content.medium.viewModifiers.count, 2)
     }
     
-    func testNonInspectableModifier() throws {
-        let sut = EmptyView().modifier(NonInspectableModifier())
-        XCTAssertThrows(try sut.inspect().find(ViewType.ViewModifierContent.self),
-                        "Search did not find a match")
-    }
-    
     func testNoModifiersError() throws {
         let sut = EmptyView().padding()
         XCTAssertThrows(try sut.inspect().emptyView().modifier(TestModifier.self),
                         "EmptyView does not have 'TestModifier' modifier")
         XCTAssertThrows(try sut.inspect().emptyView().modifier(TestModifier.self, 1),
                         "EmptyView does not have 'TestModifier' modifier at index 1")
+    }
+    
+    func testEmptyModifierUnwrapping() throws {
+        let view = Text("Test")
+            .modifier(EmptyModifier.identity)
+            .padding()
+        let sut = try view.inspect().text()
+        XCTAssertEqual(sut.content.medium.viewModifiers.count, 2)
+        XCTAssertNoThrow(_ = try sut.modifier(EmptyModifier.self))
     }
     
     func testSingleModifierInspection() throws {
@@ -150,17 +163,24 @@ final class ModifiedContentTests: XCTestCase {
         XCTAssertFalse(view2.isHidden())
         XCTAssertEqual(try view2.text().string(), "other")
     }
-}
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct NonInspectableModifier: ViewModifier {
-    func body(content: Self.Content) -> some View {
-        content
+    func testEnvironmentModifierWithNSObject() throws {
+        let view = Text("str").environment(\.font, .headline)
+        let sut = try view.inspect().text()
+        XCTAssertEqual(sut.content.medium.environmentModifiers.count, 1)
+        XCTAssertEqual(sut.content.medium.environmentObjects.count, 0)
+    }
+
+    func testEnvironmentModifierWithNonNSObject() throws {
+        let view = Text("str").environment(\.accessibilityEnabled, true)
+        let sut = try view.inspect().text()
+        XCTAssertEqual(sut.content.medium.environmentModifiers.count, 1)
+        XCTAssertEqual(sut.content.medium.environmentObjects.count, 0)
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestModifier: ViewModifier, Inspectable {
+private struct TestModifier: ViewModifier {
     var tag: Int = 0
     func body(content: Self.Content) -> some View {
         content.onAppear(perform: { })
@@ -168,7 +188,7 @@ private struct TestModifier: ViewModifier, Inspectable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestModifier2: ViewModifier, Inspectable {
+private struct TestModifier2: ViewModifier {
     
     @Binding var value: Bool
     var didAppear: ((Self) -> Void)?
@@ -184,7 +204,7 @@ private struct TestModifier2: ViewModifier, Inspectable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestModifier3: ViewModifier, Inspectable {
+private struct TestModifier3: ViewModifier {
     
     @EnvironmentObject var viewModel: ExternalState
     
@@ -202,7 +222,7 @@ private class ExternalState: ObservableObject {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestModifier4: ViewModifier, Inspectable {
+private struct TestModifier4: ViewModifier {
     
     let injection: ExternalState
     
@@ -226,12 +246,20 @@ private struct TestModifier4: ViewModifier, Inspectable {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private extension TestModifier4 {
-    struct ViewWithEnvObject: View, Inspectable {
+    struct ViewWithEnvObject: View {
         
         @EnvironmentObject var envObj: ExternalState
         
         var body: some View {
             Text(envObj.value)
         }
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private struct TestEnvironmentalModifier: EnvironmentalModifier {
+    
+    func resolve(in environment: EnvironmentValues) -> some ViewModifier {
+        return TestModifier()
     }
 }

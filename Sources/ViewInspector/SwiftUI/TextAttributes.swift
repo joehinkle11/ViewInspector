@@ -108,11 +108,13 @@ public extension ViewType.Text.Attributes {
     func isStrikethrough() throws -> Bool {
         return try commonTrait(name: "strikethrough") { modifier -> Bool? in
             guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
-                Inspector.typeName(value: child) == "StrikethroughTextModifier",
-                let active = try? Inspector
-                    .attribute(path: "lineStyle|some|active", value: child, type: Bool.self)
+                Inspector.typeName(value: child) == "StrikethroughTextModifier"
                 else { return nil }
-            return active
+            if let active = try? Inspector
+                .attribute(path: "lineStyle|some|active", value: child, type: Bool.self) {
+                return active
+            }
+            return (try? Inspector.attribute(path: "lineStyle|some|nsUnderlineStyle", value: child)) != nil
         }
     }
     
@@ -127,14 +129,28 @@ public extension ViewType.Text.Attributes {
         }
     }
     
+    @available(iOS 15.0, tvOS 15.0, macOS 11.6, *)
+    func strikethroughStyle() throws -> NSUnderlineStyle {
+        return try commonTrait(name: "strikethrough") { modifier -> NSUnderlineStyle? in
+            guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
+                Inspector.typeName(value: child) == "StrikethroughTextModifier",
+                let value = try? Inspector
+                    .attribute(path: "lineStyle|some|nsUnderlineStyle", value: child, type: NSUnderlineStyle.self)
+                else { return nil }
+            return value
+        }
+    }
+    
     func isUnderline() throws -> Bool {
         return try commonTrait(name: "underline") { modifier -> Bool? in
             guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
-                Inspector.typeName(value: child) == "UnderlineTextModifier",
-                let active = try? Inspector
-                    .attribute(path: "lineStyle|some|active", value: child, type: Bool.self)
+                Inspector.typeName(value: child) == "UnderlineTextModifier"
                 else { return nil }
-            return active
+            if let active = try? Inspector
+                .attribute(path: "lineStyle|some|active", value: child, type: Bool.self) {
+                return active
+            }
+            return (try? Inspector.attribute(path: "lineStyle|some|nsUnderlineStyle", value: child)) != nil
         }
     }
     
@@ -146,6 +162,18 @@ public extension ViewType.Text.Attributes {
                     .attribute(path: "lineStyle|some|color", value: child, type: Color?.self)
                 else { return nil }
             return color
+        }
+    }
+    
+    @available(iOS 15.0, tvOS 15.0, macOS 11.6, *)
+    func underlineStyle() throws -> NSUnderlineStyle {
+        return try commonTrait(name: "underline") { modifier -> NSUnderlineStyle? in
+            guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
+                Inspector.typeName(value: child) == "UnderlineTextModifier",
+                let value = try? Inspector
+                    .attribute(path: "lineStyle|some|nsUnderlineStyle", value: child, type: NSUnderlineStyle.self)
+                else { return nil }
+            return value
         }
     }
     
@@ -229,7 +257,9 @@ public extension ViewType.Text {
             chunks.map { $0.string }.joined()
         }
         
-        private func commonTrait<V>(name: String, _ trait: (Any) throws -> V?) throws -> V where V: Equatable {
+        private func commonTrait<V>(
+            name: String, fullRange: Bool = true, _ trait: (Any) throws -> V?
+        ) throws -> V where V: Equatable {
             guard chunks.count > 0 else {
                 throw InspectionError.textAttribute("Invalid text range")
             }
@@ -244,11 +274,13 @@ public extension ViewType.Text {
             guard let trait = traits.first else {
                 throw InspectionError.modifierNotFound(parent: "Text", modifier: name, index: 0)
             }
-            guard traits.count == chunks.count else {
-                throw InspectionError.textAttribute("Modifier '\(name)' is applied only to a subrange")
-            }
-            guard traits.allSatisfy({ $0 == trait }) else {
-                throw InspectionError.textAttribute("Modifier '\(name)' has different values in subranges")
+            if fullRange {
+                guard traits.count == chunks.count else {
+                    throw InspectionError.textAttribute("Modifier '\(name)' is applied only to a subrange")
+                }
+                guard traits.allSatisfy({ $0 == trait }) else {
+                    throw InspectionError.textAttribute("Modifier '\(name)' has different values in subranges")
+                }
             }
             return trait
         }
@@ -268,7 +300,7 @@ public extension Font {
     }
     
     func isFixedSize() -> Bool {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
         else { return false }
         guard let provider = try? Inspector.attribute(path: "provider|base", value: self),
               Inspector.typeName(value: provider) == "NamedProvider"
@@ -311,6 +343,21 @@ public extension Font {
                 .attribute(path: "provider|base|textStyle", value: self, type: Font.TextStyle.self))
         } catch {
             throw InspectionError.attributeNotFound(label: "style", type: "Font")
+        }
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+internal extension ViewType.Text.Attributes {
+    
+    func accessibilityLabel() throws -> Text {
+        return try commonTrait(name: "accessibilityLabel", fullRange: false) { modifier in
+            guard let child = try? Inspector.attribute(label: "anyTextModifier", value: modifier),
+                  Inspector.typeName(value: child) == "AccessibilityTextModifier",
+                  let label = try? Inspector.attribute(
+                    path: "anyTextModifier|value|label|some", value: modifier, type: Text.self)
+            else { return nil }
+            return label
         }
     }
 }

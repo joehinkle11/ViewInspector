@@ -78,7 +78,7 @@ final class ViewHostingTests: XCTestCase {
         wait(for: [exp], timeout: 0.2)
     }
 }
-#else
+#elseif os(iOS) || os(tvOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 final class ViewHostingTests: XCTestCase {
     
@@ -149,6 +149,39 @@ final class ViewHostingTests: XCTestCase {
         wait(for: [exp], timeout: 0.2)
     }
 }
+#elseif os(watchOS)
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+@available(watchOS, deprecated: 7.0)
+final class ViewHostingTests: XCTestCase {
+    
+    func testWKTestView() throws {
+        let exp = XCTestExpectation(description: #function)
+        exp.expectedFulfillmentCount = 2
+        var sut = WKTestView.WrapperView(didUpdate: {
+            exp.fulfill()
+        })
+        sut.didAppear = { view in
+            ViewHosting.expel()
+        }
+        ViewHosting.host(view: sut)
+        wait(for: [exp], timeout: 0.1)
+    }
+    
+    func testWKViewExtraction() throws {
+        let exp = XCTestExpectation(description: #function)
+        let sut = WKTestView(didUpdate: { })
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            sut.inspect { view in
+                XCTAssertNoThrow(try view.actualView().interfaceObject())
+                ViewHosting.expel()
+                exp.fulfill()
+            }
+        }
+        ViewHosting.host(view: sut)
+        wait(for: [exp], timeout: 1)
+    }
+}
 #endif
 
 // MARK: - Test Views
@@ -161,7 +194,7 @@ private class NSViewWithTag: NSView {
     static let onTag: Int = 43
 }
 
-private struct NSTestView: NSViewRepresentable, Inspectable {
+private struct NSTestView: NSViewRepresentable {
     
     typealias UpdateContext = NSViewRepresentableContext<Self>
     
@@ -179,7 +212,7 @@ private struct NSTestView: NSViewRepresentable, Inspectable {
 }
 
 extension NSTestView {
-    struct WrapperView: View, Inspectable {
+    struct WrapperView: View {
         
         @State var flag: Bool
         var didAppear: ((Self) -> Void)?
@@ -191,9 +224,10 @@ extension NSTestView {
         }
     }
 }
-#else
+#elseif os(iOS) || os(tvOS)
+
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct UITestView: UIViewRepresentable, Inspectable {
+private struct UITestView: UIViewRepresentable {
     
     typealias UpdateContext = UIViewRepresentableContext<Self>
     
@@ -215,7 +249,7 @@ private struct UITestView: UIViewRepresentable, Inspectable {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension UITestView {
-    struct WrapperView: View, Inspectable {
+    struct WrapperView: View {
         
         @State var flag: Bool
         var didAppear: ((Self) -> Void)?
@@ -227,10 +261,42 @@ extension UITestView {
         }
     }
 }
+#elseif os(watchOS)
+    
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+@available(watchOS, deprecated: 7.0)
+private struct WKTestView: WKInterfaceObjectRepresentable {
+    
+    var didUpdate: () -> Void
+    
+    typealias Context = WKInterfaceObjectRepresentableContext<WKTestView>
+    func makeWKInterfaceObject(context: Context) -> some WKInterfaceObject {
+        return WKInterfaceMap()
+    }
+
+    func updateWKInterfaceObject(_ wkInterfaceObject: WKInterfaceObjectType, context: Context) {
+        didUpdate()
+    }
+}
+    
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+@available(watchOS, deprecated: 7.0)
+extension WKTestView {
+    struct WrapperView: View {
+        
+        var didAppear: ((Self) -> Void)?
+        var didUpdate: () -> Void
+        
+        var body: some View {
+            WKTestView(didUpdate: didUpdate)
+                .onAppear { self.didAppear?(self) }
+        }
+    }
+}
 #endif
 
 #if os(macOS)
-private struct NSTestVC: NSViewControllerRepresentable, Inspectable {
+private struct NSTestVC: NSViewControllerRepresentable {
     
     class TestVC: NSViewController {
         override func loadView() {
@@ -257,9 +323,9 @@ private struct NSTestVC: NSViewControllerRepresentable, Inspectable {
     func updateNSViewController(_ nsViewController: TestVC, context: UpdateContext) {
     }
 }
-#else
+#elseif os(iOS) || os(tvOS)
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct UITestVC: UIViewControllerRepresentable, Inspectable {
+private struct UITestVC: UIViewControllerRepresentable {
     
     class TestVC: UIViewController { }
     

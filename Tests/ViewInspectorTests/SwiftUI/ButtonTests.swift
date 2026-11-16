@@ -71,6 +71,17 @@ final class ButtonTests: XCTestCase {
             "Button is unresponsive: it is disabled")
         wait(for: [exp], timeout: 0.5)
     }
+    
+    func testButtonRole() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut1 = Button(role: .cancel, action: { }, label: { Text("") })
+        let sut2 = Button(role: .destructive, action: { }, label: { Text("") })
+        let sut3 = Button(action: { }, label: { Text("") })
+        XCTAssertEqual(try sut1.inspect().button().role(), .cancel)
+        XCTAssertEqual(try sut2.inspect().button().role(), .destructive)
+        XCTAssertNil(try sut3.inspect().button().role())
+    }
 }
 
 // MARK: - View Modifiers
@@ -122,7 +133,8 @@ final class ButtonStyleInspectionTests: XCTestCase {
     
     #if !os(tvOS)
     func testPrimitiveButtonStyleExtraction() throws {
-        guard #available(iOS 13.1, macOS 10.16, tvOS 13.1, *) else { return }
+        guard #available(iOS 13.1, macOS 10.16, tvOS 13.1, *)
+        else { throw XCTSkip() }
         let style = TestPrimitiveButtonStyle()
         let button = try style.inspect().group().view(TestPrimitiveButtonStyle.TestButton.self, 0)
         XCTAssertNoThrow(try button.anyView().styleConfigurationLabel().blur())
@@ -151,7 +163,7 @@ final class ButtonStyleInspectionTests: XCTestCase {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private struct TestButtonStyle: ButtonStyle {
-    
+
     public func makeBody(configuration: TestButtonStyle.Configuration) -> some View {
         Group {
             configuration.label
@@ -163,7 +175,9 @@ private struct TestButtonStyle: ButtonStyle {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 private struct TestPrimitiveButtonStyle: PrimitiveButtonStyle {
-    
+
+    let style: Int = 0
+
     func makeBody(configuration: PrimitiveButtonStyle.Configuration) -> some View {
         Group {
             TestButton(configuration: configuration)
@@ -192,6 +206,3 @@ private struct TestPrimitiveButtonStyle: PrimitiveButtonStyle {
         #endif
     }
 }
-
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-extension TestPrimitiveButtonStyle.TestButton: Inspectable { }

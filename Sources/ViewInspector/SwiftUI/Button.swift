@@ -32,7 +32,13 @@ public extension InspectableView where View: MultipleViewContent {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 extension ViewType.Button: SupplementaryChildrenLabelView {
-    static var labelViewPath: String { "_label" }
+    static var labelViewPath: String {
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+            return "label"
+        } else {
+            return "_label"
+        }
+    }
 }
 
 // MARK: - Custom Attributes
@@ -48,9 +54,21 @@ public extension InspectableView where View == ViewType.Button {
     func tap() throws {
         try guardIsResponsive()
         typealias Callback = () -> Void
-        let callback = try Inspector
-            .attribute(label: "action", value: content.view, type: Callback.self)
+        let callback: Callback = try {
+            if let callback = try? Inspector
+                .attribute(path: "action|closure", value: content.view, type: Callback.self) {
+                return callback
+            }
+            return try Inspector
+                .attribute(label: "action", value: content.view, type: Callback.self)
+        }()
         callback()
+    }
+    
+    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+    func role() throws -> ButtonRole? {
+        return try Inspector.attribute(
+            label: "role", value: content.view, type: ButtonRole?.self)
     }
 }
 
@@ -61,12 +79,19 @@ public extension InspectableView {
 
     func buttonStyle() throws -> Any {
         let modifier = try self.modifier({ modifier -> Bool in
-            return modifier.modifierType.hasPrefix("ButtonStyleModifier")
+            return [
+                "PrimitiveButtonStyleContainerModifier",
+                "ButtonStyleContainerModifier",
+                "ButtonStyleModifier",
+            ].contains(where: { modifier.modifierType.hasPrefix($0) })
         }, call: "buttonStyle")
-        if let style = try? Inspector.attribute(path: "modifier|style|style", value: modifier) {
+
+        let intermediate = try Inspector.attribute(path: "modifier|style", value: modifier)
+        if let style = try? Inspector.attribute(label: "style", value: intermediate),
+           (style is any ButtonStyle) || (style is any PrimitiveButtonStyle) {
             return style
         }
-        return try Inspector.attribute(path: "modifier|style", value: modifier)
+        return intermediate
     }
 }
 
@@ -93,23 +118,56 @@ public extension PrimitiveButtonStyle {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ButtonStyleConfiguration {
-    private struct Allocator {
+    private struct Allocator3 {
+        let data: (Bool, Bool, Bool)
+        init(flag: Bool) {
+            data = (false, false, flag)
+        }
+    }
+    private struct Allocator24 {
         let data: (Int64, Int64, Int64)
         init(flag: Bool) {
             data = (flag ? -1 : 0, 0, 0)
         }
     }
     init(isPressed: Bool) {
-        self = unsafeBitCast(Allocator(flag: isPressed), to: Self.self)
+        switch MemoryLayout<Self>.size {
+        case 3:
+            self = unsafeBitCast(Allocator3(flag: isPressed), to: Self.self)
+        case 24:
+            self = unsafeBitCast(Allocator24(flag: isPressed), to: Self.self)
+        default:
+            fatalError(MemoryLayout<Self>.actualSize())
+        }
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension PrimitiveButtonStyleConfiguration {
-    private struct Allocator {
+    private struct Allocator16 {
         let onTrigger: () -> Void
     }
+    private struct Allocator24 {
+        let buffer: Int8 = 0
+        let onTrigger: () -> Void
+    }
+    private struct Allocator100 {
+        let head: (Bool, Bool) = (false, false)
+        let onTrigger: () -> Void
+        let tail: (Int64, Int64, Int64, Int64, Int64,
+                   Int64, Int64, Int64, Int64, Int32) =
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    }
     init(onTrigger: @escaping () -> Void) {
-        self = unsafeBitCast(Allocator(onTrigger: onTrigger), to: Self.self)
+        switch MemoryLayout<Self>.size {
+        case 16:
+            self = unsafeBitCast(Allocator16(onTrigger: onTrigger), to: Self.self)
+        case 24:
+            self = unsafeBitCast(Allocator24(onTrigger: onTrigger), to: Self.self)
+        case 100:
+            self = unsafeBitCast(Allocator100(onTrigger: onTrigger), to: Self.self)
+        default:
+            fatalError(MemoryLayout<Self>.actualSize())
+        }
     }
 }

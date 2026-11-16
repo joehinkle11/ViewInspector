@@ -39,13 +39,26 @@ final class InspectorTests: XCTestCase {
             "Type mismatch: String is not Int")
     }
     
+    func testUnsafeMemoryBindError() throws {
+        XCTAssertThrows(
+            try Inspector.unsafeMemoryRebind(value: Int(8), type: Bool.self),
+            """
+            Unable to rebind value of type Swift.Int to Swift.Bool. This is \
+            an internal library error, please open a ticket with these details.
+            """)
+    }
+    
     func testTypeNameValue() {
         let name1 = Inspector.typeName(value: Struct3<Int>())
         XCTAssertEqual(name1, "Struct3<Int>")
         let name2 = Inspector.typeName(value: testValue)
         XCTAssertEqual(name2, "Struct1")
-        let name3 = Inspector.typeName(value: Struct3<Int>(), prefixOnly: true)
+        let name3 = Inspector.typeName(value: Struct3<Int>(), generics: .remove)
         XCTAssertEqual(name3, "Struct3")
+        let name4 = Inspector.typeName(value: Struct3<(String) -> Void>(), generics: .remove)
+        XCTAssertEqual(name4, "Struct3")
+        let name5 = Inspector.typeName(value: (Struct3<Int>(), Struct3<String>()), generics: .remove)
+        XCTAssertEqual(name5, "(Struct3, Struct3)")
     }
     
     func testTypeNameType() {
@@ -53,6 +66,10 @@ final class InspectorTests: XCTestCase {
         XCTAssertEqual(name1, "Struct3<Int>")
         let name2 = Inspector.typeName(type: Struct1.self)
         XCTAssertEqual(name2, "Struct1")
+        let name3 = Inspector.typeName(
+            type: ModifiedContent<EmptyView, _EnvironmentKeyWritingModifier<(String) -> Void>>.self,
+            generics: .remove)
+        XCTAssertEqual(name3, "ModifiedContent")
     }
     
     func testPrintValue() {
@@ -69,6 +86,55 @@ final class InspectorTests: XCTestCase {
 
                 """
         XCTAssertEqual(Inspector.print(sut), str)
+    }
+    
+    func testPrintClassHierarchy() {
+        let sut = TestDerivedClass()
+        let str = """
+                TestDerivedClass
+                  reference: Optional<AnyObject> = nil
+                  value: Int = 5
+                
+                """
+        XCTAssertEqual(Inspector.print(sut), str)
+    }
+    
+    func testPrintCyclicReferences() {
+        let obj1 = TestBaseClass()
+        obj1.reference = obj1
+        let obj2 = TestBaseClass(), obj3 = TestBaseClass(), obj4 = TestBaseClass()
+        obj2.reference = obj3
+        obj3.reference = obj4
+        obj4.reference = obj2
+        let str1 = """
+                TestBaseClass
+                  reference: Optional<AnyObject>
+                    some: TestBaseClass = { cyclic reference }
+
+                """
+        let str2 = """
+                TestBaseClass
+                  reference: Optional<AnyObject>
+                    some: TestBaseClass
+                      reference: Optional<AnyObject>
+                        some: TestBaseClass
+                          reference: Optional<AnyObject>
+                            some: TestBaseClass = { cyclic reference }
+
+                """
+        XCTAssertEqual(Inspector.print(obj1), str1)
+        XCTAssertEqual(Inspector.print(obj2), str2)
+    }
+    
+    func testPrintTypeReference() {
+        let sut = ViewWithTypeReference()
+        XCTAssertEqual(Inspector.print(sut), """
+            ViewWithTypeReference
+              body: EmptyView = EmptyView()
+              ref: Any.Type
+            
+            """)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
     }
     
     func testTupleView() throws {
@@ -199,7 +265,7 @@ final class InspectableViewModifiersTests: XCTestCase {
         XCTAssertEqual(sut2.pathToRoot, "emptyView()")
         let view2 = TestPrintView()
         let sut3 = try view2.inspect()
-        XCTAssertEqual(sut3.pathToRoot, "view(TestPrintView.self)")
+        XCTAssertEqual(sut3.pathToRoot, "")
         let sut4 = try view2.inspect().text()
         XCTAssertEqual(sut4.pathToRoot, "view(TestPrintView.self).text()")
         let sut5 = try view2.inspect().text(0)
@@ -254,11 +320,28 @@ private struct Struct1 {
 private struct Struct3<T> { }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-private struct TestPrintView: View, Inspectable {
+private struct TestPrintView: View {
     
     let str = ["abc", "def"]
     
     var body: some View {
         Text(str[0])
     }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private struct ViewWithTypeReference: View {
+    
+    let ref = ViewWithTypeReference.self
+    
+    var body: some View {
+        EmptyView()
+    }
+}
+
+private class TestBaseClass {
+    weak var reference: AnyObject?
+}
+private final class TestDerivedClass: TestBaseClass {
+    var value: Int = 5
 }

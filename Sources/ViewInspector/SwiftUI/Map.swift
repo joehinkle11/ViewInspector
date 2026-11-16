@@ -33,7 +33,7 @@ public extension InspectableView where View: MultipleViewContent {
 
 // MARK: - Custom Attributes
 
-@available(iOS 14.0, tvOS 14.0, macOS 11.0, *)
+@available(iOS 14.0, tvOS 14.0, macOS 11.0, watchOS 7.0, *)
 public extension InspectableView where View == ViewType.Map {
     
     func coordinateRegion() throws -> MKCoordinateRegion {
@@ -92,16 +92,26 @@ public extension InspectableView where View == ViewType.Map {
     }
 }
 
-@available(iOS 14.0, tvOS 14.0, macOS 11.0, *)
+@available(iOS 14.0, tvOS 14.0, macOS 11.0, watchOS 7.0, *)
 private extension InspectableView where View == ViewType.Map {
     
     func coordinateRegionBinding() throws -> Binding<MKCoordinateRegion> {
+        if let value = try? Inspector.attribute(
+            path: "provider|regionBinding|coordinateRegion",
+            value: content.view, type: Binding<MKCoordinateRegion>.self) {
+            return value
+        }
         return try Inspector.attribute(path: "provider|region|region",
                                        value: content.view,
                                        type: Binding<MKCoordinateRegion>.self)
     }
     
     func mapRectBinding() throws -> Binding<MKMapRect> {
+        if let value = try? Inspector.attribute(
+            path: "provider|regionBinding|mapRect",
+            value: content.view, type: Binding<MKMapRect>.self) {
+            return value
+        }
         return try Inspector.attribute(path: "provider|region|rect",
                                        value: content.view,
                                        type: Binding<MKMapRect>.self)
@@ -119,7 +129,7 @@ internal protocol IdentifiableItemsContainer {
     func contains<T: Identifiable>(_ item: T) -> Bool
 }
 
-@available(iOS 14.0, tvOS 14.0, macOS 11.0, *)
+@available(iOS 14.0, tvOS 14.0, macOS 11.0, watchOS 7.0, *)
 extension _DefaultAnnotatedMapContent: IdentifiableItemsContainer {
     func contains<T: Identifiable>(_ item: T) -> Bool {
         guard let item = item as? Items.Element,

@@ -2,19 +2,19 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
-#if !os(tvOS)
+#if os(iOS) || os(macOS)
 @available(iOS 13.0, macOS 10.15, *)
 @available(tvOS, unavailable)
 final class MenuTests: XCTestCase {
     
     func testExtractionFromSingleViewContainer() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let view = AnyView(Menu("abc", content: { EmptyView() }))
         XCTAssertNoThrow(try view.inspect().anyView().menu())
     }
     
     func testExtractionFromMultipleViewContainer() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let view = HStack {
             Text("")
             Menu("abc", content: { EmptyView() })
@@ -24,7 +24,7 @@ final class MenuTests: XCTestCase {
     }
     
     func testSearch() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let view = AnyView(Menu(content: {
             HStack { Text("abc") }
         }, label: {
@@ -39,7 +39,7 @@ final class MenuTests: XCTestCase {
     }
     
     func testLabelInspection() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let view = Menu(content: {
             HStack { Text("abc") }
         }, label: {
@@ -50,7 +50,7 @@ final class MenuTests: XCTestCase {
     }
     
     func testContentInspection() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let view = Menu(content: {
             HStack { Text("abc") }
         }, label: {
@@ -61,13 +61,31 @@ final class MenuTests: XCTestCase {
     }
     
     func testLabelStyleInspection() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = EmptyView().menuStyle(DefaultMenuStyle())
         XCTAssertTrue(try sut.inspect().menuStyle() is DefaultMenuStyle)
     }
     
+    func testPrimaryAction() throws {
+        guard #available(iOS 15, macOS 12.0, *) else { throw XCTSkip() }
+        let exp = XCTestExpectation(description: #function)
+        let sut = Menu(content: { EmptyView() }, label: { EmptyView() },
+                       primaryAction: {
+            exp.fulfill()
+        })
+        try sut.inspect().menu().callPrimaryAction()
+        wait(for: [exp], timeout: 0.1)
+    }
+    
+    func testAbsentPrimaryActionCall() throws {
+        guard #available(iOS 15, macOS 12.0, *) else { throw XCTSkip() }
+        let sut = Menu(content: { EmptyView() }, label: { EmptyView() })
+        XCTAssertThrows(try sut.inspect().menu().callPrimaryAction(),
+                        "Menu does not have 'primaryAction' attribute")
+    }
+    
     func testCustomMenuStyleInspection() throws {
-        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { return }
+        guard #available(iOS 14, tvOS 14, macOS 11.0, *) else { throw XCTSkip() }
         let sut = TestMenuStyle()
         let menu = try sut.inspect().vStack().menu(0)
         XCTAssertEqual(try menu.blur().radius, 3)

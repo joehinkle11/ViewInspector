@@ -58,6 +58,21 @@ public extension InspectableView where View == ViewType.Menu {
     }
 }
 
+@available(iOS 15.0, macOS 12.0, *)
+@available(tvOS, unavailable)
+public extension InspectableView where View == ViewType.Menu {
+    
+    func callPrimaryAction() throws {
+        typealias Callback = () -> Void
+        let callback = try Inspector.attribute(
+            label: "primaryAction", value: content.view, type: Callback?.self)
+        guard let callback = callback else {
+            throw InspectionError.attributeNotFound(label: "primaryAction", type: "Menu")
+        }
+        callback()
+    }
+}
+
 // MARK: - Global View Modifiers
 
 @available(iOS 14.0, macOS 11.0, *)
@@ -74,8 +89,10 @@ public extension InspectableView {
 
 // MARK: - MenuStyle inspection
 
+#if os(iOS) || os(macOS)
 @available(iOS 14.0, macOS 11.0, *)
 @available(tvOS, unavailable)
+@available(watchOS, unavailable)
 public extension MenuStyle {
     func inspect() throws -> InspectableView<ViewType.ClassifiedView> {
         let config = MenuStyleConfiguration()
@@ -88,9 +105,26 @@ public extension MenuStyle {
 
 @available(iOS 14.0, macOS 11.0, *)
 @available(tvOS, unavailable)
+@available(watchOS, unavailable)
 private extension MenuStyleConfiguration {
-    struct Allocator { }
+    struct Allocator0 { }
+    struct Allocator16 {
+        let data: (Int64, Int64) = (0, 0)
+    }
+    struct Allocator32 {
+        let data: (Int64, Int64, Int64, Int64) = (0, 0, 0, 0)
+    }
     init() {
-        self = unsafeBitCast(Allocator(), to: Self.self)
+        switch MemoryLayout<Self>.size {
+        case 0:
+            self = unsafeBitCast(Allocator0(), to: Self.self)
+        case 16:
+            self = unsafeBitCast(Allocator16(), to: Self.self)
+        case 32:
+            self = unsafeBitCast(Allocator32(), to: Self.self)
+        default:
+            fatalError(MemoryLayout<Self>.actualSize())
+        }
     }
 }
+#endif

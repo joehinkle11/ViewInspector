@@ -6,6 +6,11 @@ import SwiftUI
 public extension InspectableView {
     
     func labelsHidden() -> Bool {
+        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+            return (try? modifierAttribute(
+                modifierName: "LabelsHiddenModifier", transitive: true,
+                path: "modifier", type: Any.self, call: "labelsHidden")) != nil
+        }
         return (try? modifierAttribute(modifierLookup: { modifier -> Bool in
             modifier.modifierType.hasPrefix("_LabeledViewStyleModifier<HiddenLabel")
         }, transitive: true, path: "modifier|style",
@@ -14,10 +19,12 @@ public extension InspectableView {
     
     #if os(macOS)
     func horizontalRadioGroupLayout() throws -> Bool {
-        _ = try modifierAttribute(
-            modifierName: "RadioGroupLayoutModifier<_HStackLayout>",
-            path: "modifier|style",
-            type: Any.self, call: "horizontalRadioGroupLayout")
+        _ = try modifier({ modifier -> Bool in
+            return [
+                "RadioGroupStyleModifier<LayoutRadioGroupStyle<_HStackLayout>>",
+                "RadioGroupLayoutModifier<_HStackLayout>",
+            ].contains(where: { modifier.modifierType == $0 })
+        }, call: "horizontalRadioGroupLayout")
         return true
     }
     

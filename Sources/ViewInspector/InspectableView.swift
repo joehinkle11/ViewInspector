@@ -1,8 +1,8 @@
 import SwiftUI
-//import XCTest
+import XCTest
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public struct InspectableView<View> where View: KnownViewType {
+public struct InspectableView<View> where View: BaseViewType {
     
     internal let content: Content
     internal let parentView: UnwrappedView?
@@ -16,46 +16,73 @@ public struct InspectableView<View> where View: KnownViewType {
             ? parent?.parentView : parent
         let inspectionCall = index
             .flatMap({ call.replacingOccurrences(of: "_:", with: "\($0)") }) ?? call
-        try self.init(content: content, parent: parentView, call: inspectionCall, index: index)
+        self = try Self.build(content: content, parent: parentView, call: inspectionCall, index: index)
     }
     
-    private init(content: Content, parent: UnwrappedView?, call: String, index: Int?) throws {
+    private static func build(content: Content, parent: UnwrappedView?, call: String, index: Int?) throws -> Self {
         if !View.typePrefix.isEmpty,
            Inspector.isTupleView(content.view),
            View.self != ViewType.TupleView.self {
             throw InspectionError.notSupported(
                 "Unable to extract \(View.typePrefix): please specify its index inside parent view")
         }
-        self.content = content
-        self.parentView = parent
-        self.inspectionCall = call
-        self.inspectionIndex = index
         do {
             try Inspector.guardType(value: content.view,
                                     namespacedPrefixes: View.namespacedPrefixes,
-                                    inspectionCall: inspectionCall)
+                                    inspectionCall: call)
         } catch {
             if let err = error as? InspectionError, case .typeMismatch = err {
-                let factual = Inspector.typeName(value: content.view, namespaced: true, prefixOnly: true)
-                    .sanitizeNamespace()
+                if let child = try? implicitCustomViewChild(
+                    parent: parent, call: call, index: index) {
+                    return child
+                }
+                let factual = Inspector.typeName(value: content.view, namespaced: true)
+                    .removingSwiftUINamespace()
                 let expected = View.namespacedPrefixes
-                    .map { $0.sanitizeNamespace() }
+                    .map { $0.removingSwiftUINamespace() }
                     .joined(separator: " or ")
+                let pathToRoot = Self.init(content: content, parent: parent, call: call, index: index)
+                    .pathToRoot
                 throw InspectionError.inspection(path: pathToRoot, factual: factual, expected: expected)
             }
             throw error
         }
+        return Self.init(content: content, parent: parent, call: call, index: index)
+    }
+    
+    private init(content: Content, parent: UnwrappedView?, call: String, index: Int?) {
+        self.content = content
+        self.parentView = parent
+        self.inspectionCall = call
+        self.inspectionIndex = index
+    }
+    
+    private static func implicitCustomViewChild(parent: UnwrappedView?, call: String, index: Int?) throws -> Self? {
+        guard let (content, parent) = try parent?.implicitCustomViewChild(index: index ?? 0, call: call)
+        else { return nil }
+        return try build(content: content, parent: parent, call: call, index: index)
+    }
+    
+    fileprivate func withCustomViewInspectionCall() -> Self {
+        let customViewType = Inspector.typeName(value: content.view, namespaced: false)
+        let call = "view(\(customViewType).self)"
+        return .init(content: content, parent: parentView, call: call, index: inspectionIndex)
     }
 }
 
-private extension String {
-    func sanitizeNamespace() -> String {
-        var str = self
-        if let range = str.range(of: ".(unknown context at ") {
-            let end = str.index(range.upperBound, offsetBy: .init(11))
-            str.replaceSubrange(range.lowerBound..<end, with: "")
-        }
-        return str.replacingOccurrences(of: "SwiftUI.", with: "")
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+extension UnwrappedView {
+    func implicitCustomViewChild(index: Int, call: String) throws
+    -> (content: Content, parent: InspectableView<ViewType.View<ViewType.Stub>>)? {
+        guard let parent = self as? InspectableView<ViewType.ClassifiedView>,
+              !Inspector.isSystemType(value: parent.content.view),
+              !(parent.content.view is AbsentView),
+              let customViewParent = try? parent
+                .asInspectableView(ofType: ViewType.View<ViewType.Stub>.self)
+        else { return nil }
+        let child = try customViewParent.child(at: index)
+        let updatedParent = customViewParent.withCustomViewInspectionCall()
+        return (child, updatedParent)
     }
 }
 
@@ -81,20 +108,25 @@ internal extension UnwrappedView {
         return try .init(content, parent: parentView, call: inspectionCall, index: inspectionIndex)
     }
     
-    func asInspectableView<T>(ofType type: T.Type) throws -> InspectableView<T> where T: KnownViewType {
+    func asInspectableView<T>(ofType type: T.Type) throws -> InspectableView<T> where T: BaseViewType {
         return try .init(content, parent: parentView, call: inspectionCall, index: inspectionIndex)
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension InspectableView {
-    func asInspectableView<T>(ofType type: T.Type) throws -> InspectableView<T> where T: KnownViewType {
+    func asInspectableView<T>(ofType type: T.Type) throws -> InspectableView<T> where T: BaseViewType {
         return try .init(content, parent: parentView, call: inspectionCall, index: inspectionIndex)
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension InspectableView {
+    /**
+      A function for accessing the parent view for introspection
+      - Returns: immediate predecessor of the current view in the hierarchy
+      - Throws: if the current view is the root
+     */
     func parent() throws -> InspectableView<ViewType.ParentView> {
         guard let parent = self.parentView else {
             throw InspectionError.parentViewNotFound(view: Inspector.typeName(value: content.view))
@@ -108,9 +140,21 @@ public extension InspectableView {
         return try .init(parent.content, parent: parent.parentView, call: parent.inspectionCall)
     }
     
+    /**
+      A property for obtaining the inspection call's chain from the root view to the current view
+      - Returns: A `String` representation of the inspection calls' chain
+     */
     var pathToRoot: String {
         let prefix = parentView.flatMap { $0.pathToRoot } ?? ""
         return prefix.isEmpty ? inspectionCall : prefix + "." + inspectionCall
+    }
+    
+    /**
+      A function for erasing the type of the current view
+      - Returns: The current view represented as a `ClassifiedView`
+     */
+    func classified() throws -> InspectableView<ViewType.ClassifiedView> {
+        return try asInspectableView()
     }
 }
 
@@ -127,6 +171,10 @@ internal extension InspectableView where View: MultipleViewContent {
     func child(at index: Int, isTupleExtraction: Bool = false) throws -> Content {
         let viewes = try View.children(content)
         guard index >= 0 && index < viewes.count else {
+            if let unwrapped = try Self.implicitCustomViewChild(
+                parent: self, call: inspectionCall, index: index) {
+                return unwrapped.content
+            }
             throw InspectionError.viewIndexOutOfBounds(index: index, count: viewes.count)
         }
         let child = try viewes.element(at: index)
@@ -144,60 +192,44 @@ internal extension InspectableView where View: MultipleViewContent {
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 public extension View {
+    
     func inspect(function: String = #function) throws -> InspectableView<ViewType.ClassifiedView> {
         let medium = ViewHosting.medium(function: function)
         let content = try Inspector.unwrap(view: self, medium: medium)
         return try .init(content, parent: nil, call: "")
     }
     
-//    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
-//                 inspection: (InspectableView<ViewType.ClassifiedView>) throws -> Void) {
-//        do {
-//            try inspection(try inspect(function: function))
-//        } catch {
-//            XCTFail("\(error.localizedDescription)", file: file, line: line)
-//        }
-//    }
-}
-
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public extension View where Self: Inspectable {
-    
-    func inspect(function: String = #function) throws -> InspectableView<ViewType.View<Self>> {
-        let call = "view(\(ViewType.View<Self>.typePrefix).self)"
-        let medium = ViewHosting.medium(function: function)
-        let content = Content(self, medium: medium)
-        return try .init(content, parent: nil, call: call)
+    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+                 inspection: (InspectableView<ViewType.View<Self>>) throws -> Void) {
+        do {
+            let view = try inspect(function: function)
+                .asInspectableView(ofType: ViewType.View<Self>.self)
+            try inspection(view)
+        } catch {
+            XCTFail("\(error.localizedDescription)", file: file, line: line)
+        }
     }
-    
-//    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
-//                 inspection: (InspectableView<ViewType.View<Self>>) throws -> Void) {
-//        do {
-//            try inspection(try inspect(function: function))
-//        } catch {
-//            XCTFail("\(error.localizedDescription)", file: file, line: line)
-//        }
-//    }
 }
 
 // MARK: - Modifiers
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
-public extension ViewModifier where Self: Inspectable {
+public extension ViewModifier {
+    
     func inspect(function: String = #function) throws -> InspectableView<ViewType.ViewModifier<Self>> {
         let medium = ViewHosting.medium(function: function)
         let content = try Inspector.unwrap(view: self, medium: medium)
         return try .init(content, parent: nil, call: "")
     }
     
-//    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
-//                 inspection: (InspectableView<ViewType.ViewModifier<Self>>) throws -> Void) {
-//        do {
-//            try inspection(try inspect(function: function))
-//        } catch {
-//            XCTFail("\(error.localizedDescription)", file: file, line: line)
-//        }
-//    }
+    func inspect(function: String = #function, file: StaticString = #file, line: UInt = #line,
+                 inspection: (InspectableView<ViewType.ViewModifier<Self>>) throws -> Void) {
+        do {
+            try inspection(try inspect(function: function))
+        } catch {
+            XCTFail("\(error.localizedDescription)", file: file, line: line)
+        }
+    }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -297,7 +329,7 @@ internal extension Content {
 internal protocol ModifierNameProvider {
     var modifierType: String { get }
     func modifierType(prefixOnly: Bool) -> String
-    var customModifier: Inspectable? { get }
+    var customModifier: Any? { get }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
@@ -309,11 +341,14 @@ extension ModifierNameProvider {
 extension ModifiedContent: ModifierNameProvider {
     
     func modifierType(prefixOnly: Bool) -> String {
-        return Inspector.typeName(type: Modifier.self, prefixOnly: prefixOnly)
+        return Inspector.typeName(type: Modifier.self, generics: prefixOnly ? .remove : .keep)
     }
     
-    var customModifier: Inspectable? {
-        return try? Inspector.attribute(label: "modifier", value: self, type: Inspectable.self)
+    var customModifier: Any? {
+        guard let modifier = try? Inspector.attribute(label: "modifier", value: self),
+              !Inspector.isSystemType(value: modifier)
+        else { return nil }
+        return modifier
     }
 }
 
@@ -339,7 +374,7 @@ public extension InspectableView {
     }
     
     internal func guardIsResponsive() throws {
-        let name = Inspector.typeName(value: content.view, prefixOnly: true)
+        let name = Inspector.typeName(value: content.view, generics: .remove)
         if isDisabled() {
             let blocker = farthestParent(where: { $0.isDisabled() }) ?? self
             throw InspectionError.unresponsiveControl(
@@ -354,6 +389,9 @@ public extension InspectableView {
             let blocker = farthestParent(where: { !$0.allowsHitTesting() }) ?? self
             throw InspectionError.unresponsiveControl(
                 name: name, reason: blocker.pathToRoot.ifEmpty(use: "it") + " has allowsHitTesting set to false")
+        }
+        if isAbsent {
+            throw InspectionError.unresponsiveControl(name: name, reason: "the conditional view has been hidden")
         }
     }
     

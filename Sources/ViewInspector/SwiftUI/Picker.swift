@@ -56,15 +56,39 @@ public extension InspectableView where View == ViewType.Picker {
     
     func select<SelectionValue>(value: SelectionValue) throws where SelectionValue: Hashable {
         try guardIsResponsive()
-        let binding = try Inspector.attribute(path: "selection", value: content.view)
-        let typeName = Inspector.typeName(value: binding)
-        guard let casted = binding as? Binding<SelectionValue> else {
-            let expected = String(Array(Array(typeName)[8..<typeName.count - 1]))
+        let bindings = try valueBindings(SelectionValue.self)
+        bindings.forEach { $0.wrappedValue = value }
+    }
+    
+    func selectedValue<SelectionValue>(_ type: SelectionValue.Type) throws -> SelectionValue {
+        let bindings = try valueBindings(SelectionValue.self)
+        guard let value = bindings.first else {
+            throw InspectionError.attributeNotFound(
+                label: "binding", type: Inspector.typeName(type: SelectionValue.self))
+        }
+        return value.wrappedValue
+    }
+    
+    private func valueBindings<SelectionValue>(_ type: SelectionValue.Type, caller: StaticString = #function
+    ) throws -> [Binding<SelectionValue>] {
+        var bindings = try Inspector.attribute(path: "selection", value: content.view)
+        if let single = bindings as? Binding<SelectionValue> {
+            bindings = [single]
+        }
+        let typeName = Inspector.typeName(value: bindings)
+        guard let casted = bindings as? [Binding<SelectionValue>] else {
+            var endIndex = typeName.index(before: typeName.endIndex)
+            if typeName.hasPrefix("Array") {
+                endIndex = typeName.index(before: endIndex)
+            }
+            let expected = typeName[..<endIndex]
+                .replacingOccurrences(of: "Array<Binding<", with: "")
+                .replacingOccurrences(of: "Binding<", with: "")
             let factual = Inspector.typeName(type: SelectionValue.self)
             throw InspectionError
-            .notSupported("select(value:) expects a value of type \(expected) but received \(factual)")
+            .notSupported("\(caller) expected a value of type \(expected) but received \(factual)")
         }
-        casted.wrappedValue = value
+        return casted
     }
 }
 

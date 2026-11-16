@@ -10,6 +10,7 @@ final class ViewColorTests: XCTestCase {
     func testForegroundColor() throws {
         let sut = EmptyView().foregroundColor(.purple)
         XCTAssertNoThrow(try sut.inspect().emptyView())
+        XCTAssertEqual(try sut.inspect().foregroundColor(), .purple)
     }
     
     func testForegroundColorInspection() throws {
@@ -44,6 +45,21 @@ final class ViewColorTests: XCTestCase {
         XCTAssertEqual(try view.foregroundColor(), .red)
     }
     #endif
+
+    func testTint() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().tint(.green)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testTintInspection() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = Group { EmptyView() }.tint(.green)
+        XCTAssertEqual(try sut.inspect().group().tint(), .green)
+        XCTAssertEqual(try sut.inspect().group().emptyView(0).tint(), .green)
+    }
     
     func testColorScheme() throws {
         let sut = EmptyView().colorScheme(.light)
@@ -68,6 +84,22 @@ final class ViewColorTests: XCTestCase {
         XCTAssertEqual(try sut.inspect().emptyView().preferredColorScheme(), .dark)
     }
     #endif
+    
+    func testForegroundStyle() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().foregroundStyle(ForegroundStyle())
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+        XCTAssertNoThrow(try sut.inspect().emptyView().foregroundStyleShapeStyle(ForegroundStyle.self))
+    }
+
+    func testForegroundStyleColor() throws {
+        guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().foregroundStyle(.purple)
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+        XCTAssertEqual(try sut.inspect().emptyView().foregroundStyleShapeStyle(Color.self), .purple)
+    }
 }
 
 // MARK: - ViewPreviewTests

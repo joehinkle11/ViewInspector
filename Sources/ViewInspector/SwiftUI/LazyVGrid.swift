@@ -34,14 +34,13 @@ public extension InspectableView where View: MultipleViewContent {
 extension ViewType.LazyVGrid: MultipleViewContent {
     
     public static func children(_ content: Content) throws -> LazyGroup<Content> {
-        let view = try Inspector.attribute(path: "tree|content", value: content.view)
-        return try Inspector.viewsInContainer(view: view, medium: content.medium)
+        return try ViewType.LazyHStack.children(content)
     }
 }
 
 // MARK: - Custom Attributes
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 public extension InspectableView where View == ViewType.LazyVGrid {
     
     func alignment() throws -> HorizontalAlignment {

@@ -65,6 +65,16 @@ public extension InspectableView where View == ViewType.Text {
     func images() throws -> [Image] {
         return try ViewType.Text.extractImages(from: self)
     }
+
+    /**
+     Returns `AttributedString` only for `Text` views constructed this way.
+     If you used explicit style modifiers, for example, `Text("Hi").bold()`,
+     consider using `attributes()` instead.
+     */
+    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+    func attributedString() throws -> AttributedString {
+        return try ViewType.Text.extractAttributedString(from: self)
+    }
 }
 
 // MARK: - String extraction
@@ -92,6 +102,11 @@ private extension ViewType.Text {
             return try extractString(dateTextStorage: textStorage)
         case "FormatterTextStorage":
             return try extractString(formatterTextStorage: textStorage)
+        case "AttributedStringTextStorage":
+            guard #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) else {
+                throw InspectionError.notSupported("AttributedString is not supported in this OS version")
+            }
+            return String(try view.attributedString().characters)
         default:
             throw InspectionError.notSupported("Unknown text storage: \(storageType)")
         }
@@ -173,6 +188,19 @@ private extension ViewType.Text {
         if let text = try? Inspector.attribute(path: "storage|text|.0", value: container, type: Text.self) {
             return try text.inspect().text().string(locale: locale)
         }
+
+        if #available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
+            if
+                let formatStyle = try? Inspector.attribute(
+                    path: "storage|formatStyleValue|format", value: container, type: (any FormatStyle).self),
+                let input = try? Inspector.attribute(
+                    path: "storage|formatStyleValue|input", value: container),
+                let string = formatStyle.string(for: input, locale: locale)
+            {
+                return string
+            }
+        }
+
         let valuePath: String
         let formatterPath: String
         if #available(iOS 14, macOS 10.16, tvOS 14, *) {
@@ -185,6 +213,15 @@ private extension ViewType.Text {
         let value = try Inspector.attribute(path: valuePath, value: container, type: CVarArg.self)
         let formatter = try Inspector.attribute(path: formatterPath, value: container, type: Formatter?.self)
         return formatter.flatMap({ $0.string(for: value) }) ?? value
+    }
+}
+
+@available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+extension FormatStyle {
+    fileprivate func string(for input: Any, locale: Locale) -> String? {
+        guard let input = input as? FormatInput else { return nil }
+        let formatter = self.locale(locale)
+        return formatter.format(input) as? String
     }
 }
 
@@ -246,5 +283,21 @@ private extension ViewType.Text {
             return try text.inspect().text().images()
         }
         return []
+    }
+}
+
+// MARK: - AttributedString extraction
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+private extension ViewType.Text {
+    static func extractAttributedString(from view: InspectableView<ViewType.Text>) throws -> AttributedString {
+        let textStorage = try Inspector.attribute(path: "storage|anyTextStorage", value: view.content.view)
+        let storageType = Inspector.typeName(value: textStorage)
+        switch storageType {
+        case "AttributedStringTextStorage":
+            return try Inspector.attribute(label: "str", value: textStorage, type: AttributedString.self)
+        default:
+            throw InspectionError.notSupported("Please use attributes() for accessing the text styles on this view")
+        }
     }
 }

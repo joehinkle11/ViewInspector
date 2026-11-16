@@ -82,15 +82,13 @@ public extension InspectableView {
         return (color, radius, offset)
     }
     
-    func border<S>(_ type: S.Type) throws -> (content: S, width: CGFloat) {
-        let content = try modifierAttribute(modifierName:
-            "_OverlayModifier<_ShapeView<_StrokedShape", path: "modifier|overlay|style",
-            type: Any.self, call: "border")
-        let castedContent = try Inspector.cast(value: content, type: S.self)
-        let width = try modifierAttribute(modifierName:
-            "_OverlayModifier<_ShapeView<_StrokedShape", path: "modifier|overlay|shape|style|lineWidth",
-            type: CGFloat.self, call: "border")
-        return (castedContent, width)
+    func border<S: ShapeStyle>(_ style: S.Type) throws -> (shapeStyle: S, width: CGFloat) {
+        let shape = try contentForModifierLookup
+            .overlay(parent: self, api: .border, index: nil)
+            .shape()
+        let shapeStyle = try shape.fillShapeStyle(style)
+        let width = try shape.strokeStyle().lineWidth
+        return (shapeStyle, width)
     }
     
     func blendMode() throws -> BlendMode {
@@ -127,20 +125,22 @@ public extension InspectableView {
         return shape.cornerSize.width
     }
     
-    func mask() throws -> InspectableView<ViewType.ClassifiedView> {
-        return try contentForModifierLookup.mask(parent: self)
+    func mask(_ index: Int? = nil) throws -> InspectableView<ViewType.ClassifiedView> {
+        return try contentForModifierLookup.mask(parent: self, index: index)
     }
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension Content {
-    func mask(parent: UnwrappedView) throws -> InspectableView<ViewType.ClassifiedView> {
+    func mask(parent: UnwrappedView, index: Int?) throws -> InspectableView<ViewType.ClassifiedView> {
         let rootView = try modifierAttribute(
             modifierName: "_MaskEffect", path: "modifier|mask",
-            type: Any.self, call: "mask")
+            type: Any.self, call: "mask", index: index ?? 0)
         let medium = self.medium.resettingViewModifiers()
+        let call = ViewType.inspectionCall(
+            base: "mask(\(ViewType.indexPlaceholder))", index: index)
         return try .init(try Inspector.unwrap(content: Content(rootView, medium: medium)),
-                         parent: parent, call: "mask()")
+                         parent: parent, call: call, index: index)
     }
 }
 
@@ -180,6 +180,7 @@ private extension UnwrappedView {
         if parent.inspectionCall == "labelView()",
            grandParent is InspectableView<ViewType.ColorPicker>
         || grandParent is InspectableView<ViewType.DatePicker>
+        || grandParent is InspectableView<ViewType.LabeledContent>
         || grandParent is InspectableView<ViewType.Picker>
         || grandParent is InspectableView<ViewType.ProgressView>
         || grandParent is InspectableView<ViewType.Slider>

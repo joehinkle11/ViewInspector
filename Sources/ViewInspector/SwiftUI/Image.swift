@@ -60,8 +60,17 @@ public extension InspectableView where View == ViewType.Image {
     }
     
     func labelView() throws -> InspectableView<ViewType.Text> {
-        return try View.supplementaryChildren(self).element(at: 0)
-            .asInspectableView(ofType: ViewType.Text.self)
+        let label = try View.supplementaryChildren(self).element(at: 0)
+        if Inspector.typeName(value: label.content.view) == "AccessibilityImageLabel" {
+            let name = try Inspector.attribute(label: "systemSymbol", value: label.content.view, type: String.self)
+            let content = Content(Text(name), medium: label.content.medium)
+            return try .init(content, parent: label.parentView)
+        }
+        if Inspector.typeName(value: label.content.view) == "ImageLabel" {
+            let content = Content(Text(try actualImage().name()), medium: label.content.medium)
+            return try .init(content, parent: label.parentView)
+        }
+        return try label.asInspectableView(ofType: ViewType.Text.self)
     }
 }
 
@@ -79,7 +88,7 @@ public extension SwiftUI.Image {
             .attribute(label: "name", value: rawImage(), type: String.self)
     }
     
-    #if os(iOS) || os(tvOS)
+    #if !os(macOS)
     func uiImage() throws -> UIImage {
         return try Inspector.cast(value: try rawImage(), type: UIImage.self)
     }

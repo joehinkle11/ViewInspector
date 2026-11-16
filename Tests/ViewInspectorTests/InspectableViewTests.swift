@@ -8,9 +8,6 @@ final class InspectableViewTests: XCTestCase {
     func testBasicInspectionFunctions() throws {
         let view = Text("abc")
         XCTAssertEqual(try view.inspect().text().string(), "abc")
-        view.inspect { view in
-            XCTAssertEqual(try view.text().string(), "abc")
-        }
     }
     
     func testIsResponsive() throws {
@@ -54,5 +51,40 @@ final class InspectableViewTestsAccessTests: XCTestCase {
         }
         XCTAssertNil(iterator.next())
         XCTAssertEqual(sut.underestimatedCount, 3)
+    }
+    
+    func testCollectionWithAbsentViews() throws {
+        let sut = try ViewWithAbsentChildren(present: false).inspect()
+            .view(ViewWithAbsentChildren.self)
+        var counter = 0
+        // `forEach` is using iterator
+        sut.forEach { _ in counter += 1 }
+        XCTAssertEqual(counter, 4)
+        // `map` is using subscript
+        let array = sut.map { try? $0.text().string() }
+        XCTAssertEqual(array, [nil, "b", "c", nil])
+        XCTAssertTrue(sut[0].isAbsent)
+        XCTAssertFalse(sut[1].isAbsent)
+        XCTAssertFalse(sut[2].isAbsent)
+        XCTAssertTrue(sut[3].isAbsent)
+        XCTAssertTrue(sut[2].isResponsive())
+        XCTAssertFalse(sut[3].isResponsive())
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private struct ViewWithAbsentChildren: View {
+    let present: Bool
+    
+    @ViewBuilder
+    var body: some View {
+        if present {
+            Text("a")
+        }
+        Text("b")
+        Text("c")
+        if present {
+            Text("d")
+        }
     }
 }

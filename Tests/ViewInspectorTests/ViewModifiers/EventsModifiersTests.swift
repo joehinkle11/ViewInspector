@@ -38,30 +38,31 @@ final class ViewEventsTests: XCTestCase {
     }
 
     func testOnChange() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let val = ""
         let sut = EmptyView().onChange(of: val) { value in }
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
 
     func testOnChangeInspection() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
-        let val = "initial"
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
+        let val = Optional(Inspector.TestValue(value: "initial"))
         let exp = XCTestExpectation(description: #function)
         let sut = EmptyView().padding().onChange(of: val) { [val] value in
-            XCTAssertEqual(val, "initial")
-            XCTAssertEqual(value, "expected")
+            XCTAssertEqual(val, Inspector.TestValue(value: "initial"))
+            XCTAssertEqual(value, Inspector.TestValue(value: "expected"))
             exp.fulfill()
         }.padding()
-        try sut.inspect().emptyView().callOnChange(newValue: "expected")
+        try sut.inspect().emptyView()
+            .callOnChange(newValue: Inspector.TestValue(value: "expected"))
         wait(for: [exp], timeout: 0.1)
     }
 
     func testMultipleOnChangeModifiersSameTypeCallFirst() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         var val = "initial"
         let other = ""
         let exp = XCTestExpectation(description: #function)
@@ -78,8 +79,8 @@ final class ViewEventsTests: XCTestCase {
     }
 
     func testMultipleOnChangeModifiersSameTypeCallByIndex() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         var val = "initial"
         let other = ""
         let exp = XCTestExpectation(description: #function)
@@ -98,8 +99,8 @@ final class ViewEventsTests: XCTestCase {
     }
     
     func testMultipleOnChangeModifiersDifferentTypes() throws {
-        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
-        else { return }
+        guard #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        else { throw XCTSkip() }
         let exp1 = XCTestExpectation(description: "onChange1")
         let exp2 = XCTestExpectation(description: "onChange2")
         [exp1, exp2].forEach {
@@ -114,6 +115,32 @@ final class ViewEventsTests: XCTestCase {
         try sut.inspect().emptyView().callOnChange(newValue: 5)
         wait(for: [exp1, exp2], timeout: 0.1)
     }
+    
+    func testOnSubmit() throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *)
+        else { throw XCTSkip() }
+        let sut = EmptyView().onSubmit { }
+        XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+
+    func testOnSubmitInspection() throws {
+        guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *)
+        else { throw XCTSkip() }
+        let expSearch = XCFlagExpectation(description: "search")
+        let expText = XCFlagExpectation(description: "text")
+        let sut = EmptyView()
+            .onSubmit(of: .search, {
+                XCTAssertTrue(expText.isFulfilled)
+                expSearch.fulfill()
+            })
+            .onSubmit(of: .text, {
+                XCTAssertFalse(expSearch.isFulfilled)
+                expText.fulfill()
+            })
+        try sut.inspect().callOnSubmit(of: .text)
+        try sut.inspect().callOnSubmit(of: .search)
+        wait(for: [expSearch, expText], timeout: 0.1)
+    }
 }
 
 // MARK: - ViewPublisherEventsTests
@@ -125,5 +152,22 @@ final class ViewPublisherEventsTests: XCTestCase {
         let publisher = Just<Void>(())
         let sut = EmptyView().onReceive(publisher) { _ in }
         XCTAssertNoThrow(try sut.inspect().emptyView())
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+private extension Inspector {
+    struct TestValue: Equatable {
+        let value: String
+    }
+}
+
+private final class XCFlagExpectation: XCTestExpectation {
+    
+    var isFulfilled: Bool = false
+    
+    override func fulfill() {
+        isFulfilled = true
+        super.fulfill()
     }
 }

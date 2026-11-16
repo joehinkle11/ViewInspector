@@ -2,7 +2,7 @@ import XCTest
 import SwiftUI
 @testable import ViewInspector
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
 final class TabViewTests: XCTestCase {
     
     func testEnclosedView() throws {
@@ -53,6 +53,47 @@ final class TabViewTests: XCTestCase {
         XCTAssertEqual(try view.inspect().find(text: "xyz").pathToRoot,
                        "anyView().tabView().text(0).tabItem().text()")
     }
+    
+    func testTabSelection() throws {
+        let sut = TestTabSelectionView()
+        let viewNotFound = "Search did not find a match"
+        let exp = sut.inspection.inspect { view in
+            XCTAssertEqual(try view.actualView().selectedTab, 1)
+            XCTAssertNoThrow(try view.find(text: "tab_1"))
+            XCTAssertThrows(try view.tabView(1).text(2),
+                            "View for tab with tag 3 is absent")
+            XCTAssertThrows(try view.find(text: "tab_2"), viewNotFound)
+            XCTAssertThrows(try view.find(text: "tab_3"), viewNotFound)
+            try view.find(button: "select_tab_3").tap()
+            XCTAssertEqual(try view.actualView().selectedTab, 3)
+        }
+
+        let exp2 = sut.inspection.inspect(after: 0.1) { view in
+            XCTAssertEqual(try view.actualView().selectedTab, 3)
+            XCTAssertThrows(try view.find(text: "tab_1"), viewNotFound)
+            XCTAssertThrows(try view.find(text: "tab_2"), viewNotFound)
+            XCTAssertNoThrow(try view.find(text: "tab_3"))
+        }
+        ViewHosting.host(view: sut)
+        wait(for: [exp, exp2], timeout: 2)
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 7.0, *)
+private struct TestTabSelectionView: View {
+    
+    @State var selectedTab = 1
+    let inspection = Inspection<Self>()
+
+    public var body: some View {
+        Button("select_tab_3", action: { selectedTab = 3 })
+        TabView(selection: $selectedTab) {
+            Text("tab_1").tag(1)
+            Text("tab_2").tag(2)
+            Text("tab_3").tag(3)
+        }
+        .onReceive(inspection.notice) { self.inspection.visit(self, $0) }
+    }
 }
 
 // MARK: - View Modifiers
@@ -71,11 +112,13 @@ final class GlobalModifiersForTabView: XCTestCase {
         XCTAssertEqual(sut, tag)
     }
     
+    @available(watchOS 7.0, *)
     func testTabItem() throws {
         let sut = EmptyView().tabItem { Text("") }
         XCTAssertNoThrow(try sut.inspect().emptyView())
     }
     
+    @available(watchOS 7.0, *)
     func testTabItemInspection() throws {
         let string = "abc"
         let tabItem = try EmptyView().tabItem { Text(string).blur(radius: 3) }
@@ -85,14 +128,16 @@ final class GlobalModifiersForTabView: XCTestCase {
         XCTAssertEqual(try sut.blur().radius, 3)
     }
     
+    @available(watchOS 7.0, *)
     func testTabItemSearch() throws {
         let view = EmptyView().tabItem { Text("abc") }
         XCTAssertNoThrow(try view.inspect().find(text: "abc"))
     }
     
-    #if !os(macOS) && !targetEnvironment(macCatalyst)
+    #if os(iOS) || os(tvOS)
     func testTabViewStyleInspection() throws {
-        guard #available(iOS 14, macOS 11.0, tvOS 14.0, *) else { return }
+        guard #available(iOS 14, macOS 11.0, tvOS 14.0, *)
+        else { throw XCTSkip() }
         let style = PageTabViewStyle(indexDisplayMode: .never)
         let view = EmptyView().tabViewStyle(style)
         let sut = try XCTUnwrap(try view.inspect().tabViewStyle() as? PageTabViewStyle)
@@ -100,7 +145,8 @@ final class GlobalModifiersForTabView: XCTestCase {
     }
     
     func testPageTabViewStyleEquatable() throws {
-        guard #available(iOS 14, macOS 11.0, tvOS 14.0, *) else { return }
+        guard #available(iOS 14, macOS 11.0, tvOS 14.0, *)
+        else { throw XCTSkip() }
         let styles = [PageTabViewStyle(indexDisplayMode: .always),
                       PageTabViewStyle(indexDisplayMode: .automatic),
                       PageTabViewStyle(indexDisplayMode: .never)]
@@ -109,12 +155,11 @@ final class GlobalModifiersForTabView: XCTestCase {
             XCTAssertNotEqual(styles[index], styles[(index + 1) % styles.count])
         }
     }
-    #endif
     
-    @available(macOS, unavailable)
     func testIndexViewStyleInspection() throws {
-        guard #available(iOS 14, tvOS 14, *) else { return }
+        guard #available(iOS 14, tvOS 14, *) else { throw XCTSkip() }
         let sut = EmptyView().indexViewStyle(PageIndexViewStyle())
         XCTAssertTrue(try sut.inspect().indexViewStyle() is PageIndexViewStyle)
     }
+    #endif
 }

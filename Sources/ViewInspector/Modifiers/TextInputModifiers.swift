@@ -2,28 +2,54 @@ import SwiftUI
 
 // MARK: - Adjusting Text in a View
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 public extension InspectableView {
     
-    #if !os(macOS)
+    #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
     func textContentType() throws -> UITextContentType? {
         let reference = EmptyView().textContentType(.emailAddress)
         let keyPath = try Inspector.environmentKeyPath(Optional<String>.self, reference)
         let value = try environment(keyPath, call: "textContentType")
         return value.flatMap { UITextContentType(rawValue: $0) }
     }
-    #endif
-
-    #if os(iOS) || os(tvOS)
+    
     func keyboardType() throws -> UIKeyboardType {
-        let reference = EmptyView().keyboardType(.default)
-        let keyPath = try Inspector.environmentKeyPath(Int.self, reference)
-        let value = try environment(keyPath, call: "keyboardType")
-        return UIKeyboardType(rawValue: value)!
+        guard #available(iOS 15.0, tvOS 15.0, watchOS 8.0, *) else {
+            let reference = EmptyView().keyboardType(.default)
+            let keyPath = try Inspector.environmentKeyPath(Int.self, reference)
+            let value = try environment(keyPath, call: "keyboardType")
+            return UIKeyboardType(rawValue: value)!
+        }
+        guard let modifier = content.medium.environmentModifiers.last(where: { modifier in
+            guard let keyPath = try? modifier.keyPath()
+            else { return false }
+            let keyPathType = Inspector.typeName(value: keyPath)
+            return keyPathType == "WritableKeyPath<EnvironmentValues, KeyboardType>"
+        }) else {
+            throw InspectionError.modifierNotFound(
+                parent: Inspector.typeName(value: content.view), modifier: "keyboardType", index: 0)
+        }
+        return try Inspector.attribute(
+            label: "type", value: try modifier.value(), type: UIKeyboardType.self)
     }
     
     func autocapitalization() throws -> UITextAutocapitalizationType {
         let reference = EmptyView().autocapitalization(.none)
+        if #available(iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
+            typealias Closure = (inout TextInputAutocapitalization) -> Void
+            if let keyPath = try? Inspector
+                .environmentKeyPath(TextInputAutocapitalization.self, reference) {
+                let closure = try environment(keyPath, call: "autocapitalization", valueType: Closure.self)
+                var value = TextInputAutocapitalization.never
+                closure(&value)
+                let behavior = try Inspector.attribute(label: "behavior", value: value)
+                let stringValue = String(describing: behavior)
+                guard let style = TextInputAutocapitalization.Behavior(rawValue: stringValue) else {
+                    throw InspectionError.notSupported("Unknown TextInputAutocapitalization.Behavior: \(stringValue)")
+                }
+                return style.autocapitalizationType
+            }
+        }
         let keyPath = try Inspector.environmentKeyPath(Int.self, reference)
         let value = try environment(keyPath, call: "autocapitalization")
         return UITextAutocapitalizationType(rawValue: value)!
@@ -91,6 +117,7 @@ public extension InspectableView {
         return false
     }
     
+    #if !os(watchOS)
     func disableAutocorrection() -> Bool {
         let reference = EmptyView().disableAutocorrection(false)
         if let keyPath = try? Inspector.environmentKeyPath(Optional<Bool>.self, reference),
@@ -99,6 +126,7 @@ public extension InspectableView {
         }
         return false
     }
+    #endif
     
     func flipsForRightToLeftLayoutDirection() -> Bool {
         return modifiersMatching({ $0.modifierType == "_FlipForRTLEffect" },
@@ -109,3 +137,21 @@ public extension InspectableView {
             .contains(true)
     }
 }
+
+#if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
+@available(iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+extension TextInputAutocapitalization {
+    enum Behavior: String {
+        case never, words, sentences, characters
+        
+        var autocapitalizationType: UITextAutocapitalizationType {
+            switch self {
+            case .never: return .none
+            case .words: return .words
+            case .sentences: return .sentences
+            case .characters: return .allCharacters
+            }
+        }
+    }
+}
+#endif

@@ -1,5 +1,58 @@
 import SwiftUI
 
+#if (os(macOS) || targetEnvironment(macCatalyst)) && !MAC_OS_VERSION_13_0
+struct ToolbarPlacement {
+    static var navigationBar: ToolbarPlacement { .init() }
+}
+#endif
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+public extension InspectableView {
+    
+    @available(iOS 13.0, tvOS 13.0, *)
+    @available(macOS, unavailable)
+    func navigationBarHidden() throws -> Bool {
+        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+            let value = try modifierAttribute(modifierLookup: { modifier -> Bool in
+                guard modifier.modifierType.contains("ToolbarAppearanceModifier"),
+                      let bars = try? Inspector.attribute(
+                        path: "modifier|bars", value: modifier, type: [ToolbarPlacement].self)
+                else { return false }
+                return bars.contains(.navigationBar)
+            }, path: "modifier|visibility|some", type: Any.self, call: "navigationBarHidden")
+            return String(describing: value) != "visible"
+        }
+        let value = try modifierAttribute(
+            modifierName: "_PreferenceWritingModifier<NavigationBarHiddenKey>",
+            path: "modifier|value", type: Any.self, call: "navigationBarHidden")
+        if let bool = value as? Bool?, let value = bool {
+            return value
+        }
+        return try Inspector.cast(value: value, type: Bool.self)
+    }
+    
+    @available(iOS 13.0, tvOS 13.0, *)
+    @available(macOS, unavailable)
+    func navigationBarBackButtonHidden() throws -> Bool {
+        return try modifierAttribute(
+            modifierName: "_PreferenceWritingModifier<NavigationBarBackButtonHiddenKey>",
+            path: "modifier|value", type: Bool.self, call: "navigationBarBackButtonHidden")
+    }
+    
+    @available(iOS 13.0, *)
+    @available(macOS, unavailable)
+    @available(tvOS, unavailable)
+    @available(watchOS, unavailable)
+    func statusBarHidden() throws -> Bool {
+        return try modifierAttribute(
+            modifierName: "TransactionalPreferenceModifier<Bool, StatusBarKey>",
+            path: "modifier|value", type: Bool.self, call: "statusBar(hidden:)")
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+extension ToolbarPlacement: BinaryEquatable { }
+
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
 internal extension ViewType {
     struct EnvironmentReaderView { }
@@ -17,7 +70,9 @@ extension ViewType.EnvironmentReaderView: SingleViewContent {
 
 // MARK: - Extraction from SingleViewContent parent
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, *)
+@available(iOS 13.0, tvOS 13.0, *)
+@available(macOS, unavailable)
+@available(watchOS, unavailable)
 public extension InspectableView where View: SingleViewContent {
     
     func navigationBarItems() throws -> InspectableView<ViewType.ClassifiedView> {
